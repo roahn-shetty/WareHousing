@@ -1,0 +1,124 @@
+@page "/menu-master"
+
+<PageTitle>Menu Master</PageTitle>
+
+<section class="master-shell">
+    <div class="master-header">
+        <div>
+            <p class="section-kicker">Navigation Control</p>
+            <h1 class="page-title">Menu Master</h1>
+            <p class="page-subtitle">
+                Review the menu structure exposed to the client and align it with warehouse roles and routes.
+            </p>
+        </div>
+        <div class="header-note-card">
+            <span class="header-note-label">Menu coverage</span>
+            <strong>24 published routes</strong>
+            <p>Master links below show which roles should see each warehouse workspace.</p>
+        </div>
+    </div>
+
+    <div class="dashboard-grid">
+        @foreach (var group in MenuGroups)
+        {
+            <section class="panel">
+                <div class="panel-heading">
+                    <div>
+                        <h2 class="panel-title">@group.Title</h2>
+                        <p class="panel-subtitle">@group.Description</p>
+                    </div>
+                </div>
+
+                <div class="summary-stack">
+                    @foreach (var item in group.Items)
+                    {
+                        <div class="summary-card">
+                            <div class="summary-title-row">
+                                <strong>@item.Title</strong>
+                                <span class="mini-badge mini-badge-cyan">@item.Sequence</span>
+                            </div>
+                            <span class="summary-label">@item.Route</span>
+                            <div class="chip-list">
+                                @foreach (var role in item.Roles)
+                                {
+                                    <span class="chip">@role</span>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            </section>
+        }
+    </div>
+
+    <section class="panel table-panel">
+        <div class="panel-heading">
+            <div>
+                <h2 class="panel-title">Menu matrix</h2>
+                <p class="panel-subtitle">Role-wise route visibility for the main master pages.</p>
+            </div>
+        </div>
+
+        <div class="table-shell">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Sequence</th>
+                        <th>Menu Name</th>
+                        <th>Route</th>
+                        <th>Visible To</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in MenuRows)
+                    {
+                        <tr>
+                            <td>@row.Sequence</td>
+                            <td>@row.Title</td>
+                            <td>@row.Route</td>
+                            <td>@string.Join(", ", row.Roles)</td>
+                            <td>@row.Status</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+</section>
+
+@code {
+    private static readonly MenuGroup[] MenuGroups =
+    {
+        new(
+            "Core Navigation",
+            "Primary pages shown after client login.",
+            new[]
+            {
+                new MenuItem("01", "Dashboard", "/", new[] { "Administrator", "Dispatch Supervisor", "Inventory Controller" }),
+                new MenuItem("02", "User Master", "/user-master", new[] { "Administrator", "Inventory Controller" }),
+                new MenuItem("03", "Role Master", "/role-master", new[] { "Administrator" })
+            }),
+        new(
+            "Operational Devices",
+            "Pages used for print and execution controls.",
+            new[]
+            {
+                new MenuItem("04", "Printer Master", "/printer-master", new[] { "Administrator", "Dispatch Supervisor" }),
+                new MenuItem("05", "Menu Master", "/menu-master", new[] { "Administrator" })
+            })
+    };
+
+    private static readonly MenuRow[] MenuRows =
+    {
+        new("01", "Dashboard", "/", new[] { "Administrator", "Dispatch Supervisor", "Inventory Controller" }, "Published"),
+        new("02", "User Master", "/user-master", new[] { "Administrator", "Inventory Controller" }, "Published"),
+        new("03", "Role Master", "/role-master", new[] { "Administrator" }, "Published"),
+        new("04", "Printer Master", "/printer-master", new[] { "Administrator", "Dispatch Supervisor" }, "Published"),
+        new("05", "Menu Master", "/menu-master", new[] { "Administrator" }, "Published")
+    };
+
+    private sealed record MenuGroup(string Title, string Description, MenuItem[] Items);
+    private sealed record MenuItem(string Sequence, string Title, string Route, string[] Roles);
+    private sealed record MenuRow(string Sequence, string Title, string Route, string[] Roles, string Status);
+}

@@ -1,0 +1,253 @@
+@page "/printer-master"
+@rendermode InteractiveServer
+
+<PageTitle>Printer Master</PageTitle>
+
+<section class="master-shell">
+    <div class="master-header">
+        <div>
+            <p class="section-kicker">Device Configuration</p>
+            <h1 class="page-title">Printer Master</h1>
+            <p class="page-subtitle">
+                Register printer identity, IP mapping, and activation status for warehouse print stations.
+            </p>
+        </div>
+        <div class="header-note-card">
+            <span class="header-note-label">Network view</span>
+            <strong>@printers.Count registered printers</strong>
+            <p>Dock, gate, and packing printers can be managed from a single control panel.</p>
+        </div>
+    </div>
+
+    <div class="master-content-grid">
+        <section class="panel panel-large">
+            <div class="panel-heading">
+                <div>
+                    <h2 class="panel-title">Printer setup form</h2>
+                    <p class="panel-subtitle">Maintain printer endpoints used for labels, dispatch slips, and gate passes.</p>
+                </div>
+                <span class="pill pill-amber">Endpoint setup</span>
+            </div>
+
+            <EditForm Model="@printerForm" OnValidSubmit="@HandleSavePrinter" class="master-form">
+                <DataAnnotationsValidator />
+                <ValidationSummary class="validation-summary" />
+
+                <div class="form-grid">
+                    <div class="field-block">
+                        <label class="field-label" for="printer-name">Printer Name</label>
+                        <InputText id="printer-name" class="field-input" @bind-Value="printerForm.PrinterName" />
+                    </div>
+
+                    <div class="field-block">
+                        <label class="field-label" for="printer-id">Printer ID</label>
+                        <InputText id="printer-id" class="field-input" @bind-Value="printerForm.PrinterId" />
+                    </div>
+
+                    <div class="field-block">
+                        <label class="field-label" for="ip-address">IP Address</label>
+                        <InputText id="ip-address" class="field-input" @bind-Value="printerForm.IpAddress" />
+                    </div>
+
+                    <div class="field-block">
+                        <label class="field-label" for="port-no">Port No</label>
+                        <InputNumber id="port-no" class="field-input" @bind-Value="printerForm.PortNumber" />
+                    </div>
+
+                    <div class="field-block">
+                        <label class="field-label" for="printer-status">Activate/Deactivate</label>
+                        <InputSelect id="printer-status" class="field-input" @bind-Value="printerForm.Status">
+                            <option value="Active">Active</option>
+                            <option value="Inactive">Inactive</option>
+                        </InputSelect>
+                    </div>
+
+                    <div class="field-block field-block-full">
+                        <label class="field-label" for="printer-remark">Remark</label>
+                        <InputTextArea id="printer-remark" class="field-input field-textarea" @bind-Value="printerForm.Remark" />
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary-action">Save Printer</button>
+                    <button type="button" class="btn-secondary-action" @onclick="ResetPrinterForm">Clear</button>
+                </div>
+            </EditForm>
+
+            @if (!string.IsNullOrWhiteSpace(statusMessage))
+            {
+                <p class="form-status">@statusMessage</p>
+            }
+        </section>
+
+        <aside class="panel side-panel">
+            <div class="panel-heading">
+                <div>
+                    <h2 class="panel-title">Zone summary</h2>
+                    <p class="panel-subtitle">Printer placement across warehouse touch points.</p>
+                </div>
+            </div>
+
+            <div class="summary-stack">
+                <div class="summary-card">
+                    <span class="summary-label">Active printers</span>
+                    <strong class="summary-number">@printers.Count(printer => printer.Status == "Active")</strong>
+                    <p class="summary-text">Ready for packing slips, labels, and dispatch notes.</p>
+                </div>
+
+                <div class="summary-card">
+                    <span class="summary-label">Inactive printers</span>
+                    <strong class="summary-number">@printers.Count(printer => printer.Status == "Inactive")</strong>
+                    <p class="summary-text">Review IP mapping or hardware connectivity before the next shift.</p>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <section class="panel table-panel">
+        <div class="panel-heading">
+            <div>
+                <h2 class="panel-title">Registered printers</h2>
+                <p class="panel-subtitle">Current printer directory with IP and port mappings.</p>
+            </div>
+        </div>
+
+        <div class="table-shell">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Printer Name</th>
+                        <th>Printer ID</th>
+                        <th>IP Address</th>
+                        <th>Port No</th>
+                        <th>Status</th>
+                        <th>Remark</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var printer in printers)
+                    {
+                        <tr>
+                            <td>@printer.PrinterName</td>
+                            <td>@printer.PrinterId</td>
+                            <td>@printer.IpAddress</td>
+                            <td>@printer.PortNumber</td>
+                            <td>@printer.Status</td>
+                            <td>@printer.Remark</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+</section>
+
+@code {
+    private readonly List<PrinterEntry> printers = new List<PrinterEntry>
+    {
+        new PrinterEntry
+        {
+            PrinterName = "Dock Label Printer",
+            PrinterId = "PRN001",
+            IpAddress = "192.168.10.41",
+            PortNumber = 9100,
+            Status = "Active",
+            Remark = "Inbound bay"
+        },
+        new PrinterEntry
+        {
+            PrinterName = "Dispatch Slip Printer",
+            PrinterId = "PRN014",
+            IpAddress = "192.168.10.58",
+            PortNumber = 9100,
+            Status = "Active",
+            Remark = "Outbound desk"
+        },
+        new PrinterEntry
+        {
+            PrinterName = "Gate Pass Printer",
+            PrinterId = "PRN021",
+            IpAddress = "192.168.10.72",
+            PortNumber = 9100,
+            Status = "Inactive",
+            Remark = "Awaiting maintenance"
+        }
+    };
+
+    private PrinterFormModel printerForm = new PrinterFormModel
+    {
+        Status = "Active"
+    };
+
+    private string statusMessage = string.Empty;
+
+    private void HandleSavePrinter()
+    {
+        var existingPrinter = printers.FirstOrDefault(printer => printer.PrinterId.Equals(printerForm.PrinterId, StringComparison.OrdinalIgnoreCase));
+        if (existingPrinter is null)
+        {
+            printers.Insert(0, ToPrinterEntry(printerForm));
+            statusMessage = $"{printerForm.PrinterName} has been added to Printer Master.";
+        }
+        else
+        {
+            existingPrinter.PrinterName = printerForm.PrinterName;
+            existingPrinter.IpAddress = printerForm.IpAddress;
+            existingPrinter.PortNumber = printerForm.PortNumber ?? 0;
+            existingPrinter.Status = printerForm.Status;
+            existingPrinter.Remark = printerForm.Remark;
+            statusMessage = $"{printerForm.PrinterName} has been updated.";
+        }
+    }
+
+    private void ResetPrinterForm()
+    {
+        printerForm = new PrinterFormModel
+        {
+            Status = "Active"
+        };
+        statusMessage = string.Empty;
+    }
+
+    private static PrinterEntry ToPrinterEntry(PrinterFormModel model) =>
+        new PrinterEntry
+        {
+            PrinterName = model.PrinterName,
+            PrinterId = model.PrinterId,
+            IpAddress = model.IpAddress,
+            PortNumber = model.PortNumber ?? 0,
+            Status = model.Status,
+            Remark = model.Remark
+        };
+
+    private sealed class PrinterFormModel
+    {
+        [Required(ErrorMessage = "Printer Name is required.")]
+        public string PrinterName { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Printer ID is required.")]
+        public string PrinterId { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "IP Address is required.")]
+        [RegularExpression(@"^(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)$", ErrorMessage = "Enter a valid IPv4 address.")]
+        public string IpAddress { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Port No is required.")]
+        [Range(1, 65535, ErrorMessage = "Port No should be between 1 and 65535.")]
+        public int? PortNumber { get; set; }
+
+        public string Status { get; set; } = "Active";
+
+        public string Remark { get; set; } = string.Empty;
+    }
+
+    private sealed class PrinterEntry
+    {
+        public string PrinterName { get; set; } = string.Empty;
+        public string PrinterId { get; set; } = string.Empty;
+        public string IpAddress { get; set; } = string.Empty;
+        public int PortNumber { get; set; }
+        public string Status { get; set; } = "Active";
+        public string Remark { get; set; } = string.Empty;
+    }
+}

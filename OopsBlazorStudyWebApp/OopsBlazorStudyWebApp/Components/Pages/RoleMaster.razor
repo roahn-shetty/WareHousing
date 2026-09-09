@@ -1,0 +1,317 @@
+@page "/role-master"
+@rendermode InteractiveServer
+
+<PageTitle>Role Master</PageTitle>
+
+<section class="master-shell">
+    <div class="master-header">
+        <div>
+            <p class="section-kicker">Access Matrix</p>
+            <h1 class="page-title">Role Master</h1>
+            <p class="page-subtitle">
+                Create warehouse roles, define the default landing page, and decide which menu areas each role can use.
+            </p>
+        </div>
+        <div class="header-note-card">
+            <span class="header-note-label">Role health</span>
+            <strong>@roles.Count configured templates</strong>
+            <p>Each role in this screen is connected to route-level menu permissions.</p>
+        </div>
+    </div>
+
+    <div class="master-content-grid">
+        <section class="panel panel-large">
+            <div class="panel-heading">
+                <div>
+                    <h2 class="panel-title">Configure role</h2>
+                    <p class="panel-subtitle">Prepare access bundles before assigning them inside User Master.</p>
+                </div>
+                <span class="pill pill-cyan">Role setup</span>
+            </div>
+
+            <EditForm Model="@roleForm" OnValidSubmit="@HandleSaveRole" class="master-form">
+                <DataAnnotationsValidator />
+                <ValidationSummary class="validation-summary" />
+
+                <div class="form-grid">
+                    <div class="field-block">
+                        <label class="field-label" for="role-name">Role Name</label>
+                        <InputText id="role-name" class="field-input" @bind-Value="roleForm.RoleName" />
+                    </div>
+
+                    <div class="field-block">
+                        <label class="field-label" for="role-code">Role Code</label>
+                        <InputText id="role-code" class="field-input" @bind-Value="roleForm.RoleCode" />
+                    </div>
+
+                    <div class="field-block">
+                        <label class="field-label" for="landing-page">Default Landing Page</label>
+                        <InputSelect id="landing-page" class="field-input" @bind-Value="roleForm.LandingPage">
+                            <option value="">Select page</option>
+                            @foreach (var landingPage in LandingPages)
+                            {
+                                <option value="@landingPage">@landingPage</option>
+                            }
+                        </InputSelect>
+                    </div>
+
+                    <div class="field-block">
+                        <label class="field-label" for="role-status">Status</label>
+                        <InputSelect id="role-status" class="field-input" @bind-Value="roleForm.Status">
+                            <option value="Active">Active</option>
+                            <option value="Inactive">Inactive</option>
+                        </InputSelect>
+                    </div>
+
+                    <div class="field-block field-block-full">
+                        <label class="field-label">Menu Rights</label>
+                        <div class="selection-grid">
+                            @foreach (var right in MenuRights)
+                            {
+                                <label class="selection-chip">
+                                    <input type="checkbox" checked="@roleForm.AssignedMenus.Contains(right)" @onchange="@(args => ToggleMenuRight(right, args))" />
+                                    <span>@right</span>
+                                </label>
+                            }
+                        </div>
+                    </div>
+
+                    <div class="field-block field-block-full">
+                        <label class="field-label" for="role-remark">Remark</label>
+                        <InputTextArea id="role-remark" class="field-input field-textarea" @bind-Value="roleForm.Remark" />
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary-action">Save Role</button>
+                    <button type="button" class="btn-secondary-action" @onclick="ResetRoleForm">Clear</button>
+                </div>
+            </EditForm>
+
+            @if (!string.IsNullOrWhiteSpace(statusMessage))
+            {
+                <p class="form-status">@statusMessage</p>
+            }
+        </section>
+
+        <aside class="panel side-panel">
+            <div class="panel-heading">
+                <div>
+                    <h2 class="panel-title">Configured roles</h2>
+                    <p class="panel-subtitle">Quick snapshot of warehouse access templates.</p>
+                </div>
+            </div>
+
+            <div class="summary-stack">
+                @foreach (var role in roles)
+                {
+                    <div class="summary-card">
+                        <div class="summary-title-row">
+                            <strong>@role.RoleName</strong>
+                            <span class="mini-badge @(role.Status == "Active" ? "mini-badge-teal" : "mini-badge-slate")">@role.Status</span>
+                        </div>
+                        <span class="summary-label">@role.RoleCode</span>
+                        <p class="summary-text">Landing page: @role.LandingPage</p>
+                        <div class="chip-list">
+                            @foreach (var menu in role.AssignedMenus)
+                            {
+                                <span class="chip">@menu</span>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        </aside>
+    </div>
+
+    <section class="panel table-panel">
+        <div class="panel-heading">
+            <div>
+                <h2 class="panel-title">Role matrix</h2>
+                <p class="panel-subtitle">Compare role codes, landing pages, and menu-right counts.</p>
+            </div>
+        </div>
+
+        <div class="table-shell">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Role Name</th>
+                        <th>Role Code</th>
+                        <th>Landing Page</th>
+                        <th>Status</th>
+                        <th>Menu Rights</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var role in roles)
+                    {
+                        <tr>
+                            <td>@role.RoleName</td>
+                            <td>@role.RoleCode</td>
+                            <td>@role.LandingPage</td>
+                            <td>@role.Status</td>
+                            <td>@role.AssignedMenus.Count</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+</section>
+
+@code {
+    private static readonly string[] LandingPages =
+    {
+        "Dashboard",
+        "User Master",
+        "Role Master",
+        "Printer Master",
+        "Menu Master"
+    };
+
+    private static readonly string[] MenuRights =
+    {
+        "Dashboard",
+        "User Master",
+        "Role Master",
+        "Printer Master",
+        "Menu Master",
+        "Reports"
+    };
+
+    private readonly List<RoleEntry> roles = new List<RoleEntry>
+    {
+        new RoleEntry
+        {
+            RoleName = "Administrator",
+            RoleCode = "ADM",
+            LandingPage = "Dashboard",
+            Status = "Active",
+            AssignedMenus = new List<string> { "Dashboard", "User Master", "Role Master", "Printer Master", "Menu Master", "Reports" },
+            Remark = "Complete client access"
+        },
+        new RoleEntry
+        {
+            RoleName = "Dispatch Supervisor",
+            RoleCode = "DSP",
+            LandingPage = "Dashboard",
+            Status = "Active",
+            AssignedMenus = new List<string> { "Dashboard", "Printer Master", "Reports" },
+            Remark = "Dispatch and print controls"
+        },
+        new RoleEntry
+        {
+            RoleName = "Inventory Controller",
+            RoleCode = "INV",
+            LandingPage = "User Master",
+            Status = "Active",
+            AssignedMenus = new List<string> { "Dashboard", "User Master", "Reports" },
+            Remark = "Inbound stock operations"
+        }
+    };
+
+    private RoleFormModel roleForm = new RoleFormModel
+    {
+        Status = "Active"
+    };
+
+    private string statusMessage = string.Empty;
+
+    private void HandleSaveRole()
+    {
+        var existingRole = roles.FirstOrDefault(role => role.RoleCode.Equals(roleForm.RoleCode, StringComparison.OrdinalIgnoreCase));
+        if (existingRole is null)
+        {
+            roles.Insert(0, ToRoleEntry(roleForm));
+            statusMessage = $"{roleForm.RoleName} has been added to the warehouse role matrix.";
+        }
+        else
+        {
+            existingRole.RoleName = roleForm.RoleName;
+            existingRole.LandingPage = roleForm.LandingPage;
+            existingRole.Status = roleForm.Status;
+            existingRole.Remark = roleForm.Remark;
+            existingRole.AssignedMenus = new List<string>(roleForm.AssignedMenus);
+            statusMessage = $"{roleForm.RoleName} has been updated.";
+        }
+    }
+
+    private void ResetRoleForm()
+    {
+        roleForm = new RoleFormModel
+        {
+            Status = "Active"
+        };
+        statusMessage = string.Empty;
+    }
+
+    private void ToggleMenuRight(string right, ChangeEventArgs args)
+    {
+        var isChecked = args.Value switch
+        {
+            bool boolValue => boolValue,
+            string stringValue when bool.TryParse(stringValue, out var parsedValue) => parsedValue,
+            _ => false
+        };
+
+        if (isChecked)
+        {
+            if (!roleForm.AssignedMenus.Contains(right))
+            {
+                roleForm.AssignedMenus.Add(right);
+            }
+        }
+        else
+        {
+            roleForm.AssignedMenus.Remove(right);
+        }
+    }
+
+    private static RoleEntry ToRoleEntry(RoleFormModel model) =>
+        new RoleEntry
+        {
+            RoleName = model.RoleName,
+            RoleCode = model.RoleCode,
+            LandingPage = model.LandingPage,
+            Status = model.Status,
+            Remark = model.Remark,
+            AssignedMenus = new List<string>(model.AssignedMenus)
+        };
+
+    private sealed class RoleFormModel : IValidatableObject
+    {
+        [Required(ErrorMessage = "Role Name is required.")]
+        public string RoleName { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Role Code is required.")]
+        public string RoleCode { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Default Landing Page is required.")]
+        public string LandingPage { get; set; } = string.Empty;
+
+        public string Status { get; set; } = "Active";
+
+        public List<string> AssignedMenus { get; set; } = new();
+
+        public string Remark { get; set; } = string.Empty;
+
+        public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+        {
+            if (AssignedMenus.Count == 0)
+            {
+                yield return new ValidationResult("Select at least one menu right for the role.", new[] { nameof(AssignedMenus) });
+            }
+        }
+    }
+
+    private sealed class RoleEntry
+    {
+        public string RoleName { get; set; } = string.Empty;
+        public string RoleCode { get; set; } = string.Empty;
+        public string LandingPage { get; set; } = string.Empty;
+        public string Status { get; set; } = "Active";
+        public string Remark { get; set; } = string.Empty;
+        public List<string> AssignedMenus { get; set; } = new();
+    }
+}

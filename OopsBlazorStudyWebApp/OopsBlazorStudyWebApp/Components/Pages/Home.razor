@@ -1,0 +1,187 @@
+﻿@page "/"
+
+<PageTitle>Warehouse Dashboard</PageTitle>
+
+<section class="dashboard-shell">
+    <div class="hero-panel">
+        <div>
+            <p class="section-kicker">Client Start Page</p>
+            <h1 class="page-title">Warehouse Command Dashboard</h1>
+            <p class="page-subtitle">
+                Monitor client access, device readiness, and menu coverage from one start page designed for warehouse master setup.
+            </p>
+        </div>
+        <div class="hero-highlight">
+            <span class="hero-highlight-label">Today's readiness</span>
+            <strong>96% operations health</strong>
+            <p>Users, roles, printers, and menu access are aligned for the next dispatch cycle.</p>
+        </div>
+    </div>
+
+    <div class="metric-grid">
+        @foreach (var metric in DashboardMetrics)
+        {
+            <article class="metric-card @metric.AccentClass">
+                <span class="metric-label">@metric.Label</span>
+                <strong>@metric.Value</strong>
+                <span class="metric-meta">@metric.Meta</span>
+            </article>
+        }
+    </div>
+
+    <div class="dashboard-grid dashboard-grid-wide">
+        <section class="panel panel-large">
+            <div class="panel-heading">
+                <div>
+                    <h2 class="panel-title">Inbound vs outbound activity</h2>
+                    <p class="panel-subtitle">Last six warehouse windows mapped as a quick planning graph.</p>
+                </div>
+                <span class="pill pill-teal">Live trend</span>
+            </div>
+
+            <div class="bar-chart">
+                @foreach (var point in ActivityChart)
+                {
+                    <div class="bar-group">
+                        <div class="bar-stack">
+                            <div class="bar bar-inbound" style="@($"--bar-height:{point.InboundPercent}%")"></div>
+                            <div class="bar bar-outbound" style="@($"--bar-height:{point.OutboundPercent}%")"></div>
+                        </div>
+                        <div class="bar-legend">
+                            <span>@point.Month</span>
+                            <small>@point.Inbound / @point.Outbound</small>
+                        </div>
+                    </div>
+                }
+            </div>
+        </section>
+
+        <section class="panel">
+            <div class="panel-heading">
+                <div>
+                    <h2 class="panel-title">Storage utilization</h2>
+                    <p class="panel-subtitle">Current balance between stocking capacity and admin readiness.</p>
+                </div>
+            </div>
+
+            <div class="ring-chart" style="@($"--ring-value:{StorageUtilization}")">
+                <div class="ring-center">
+                    <strong>@StorageUtilization%</strong>
+                    <span>utilized</span>
+                </div>
+            </div>
+
+            <div class="legend-list">
+                @foreach (var item in UtilizationLegend)
+                {
+                    <div class="legend-item">
+                        <span class="legend-swatch @item.AccentClass"></span>
+                        <div>
+                            <strong>@item.Label</strong>
+                            <small>@item.Value</small>
+                        </div>
+                    </div>
+                }
+            </div>
+        </section>
+    </div>
+
+    <div class="dashboard-grid">
+        <section class="panel">
+            <div class="panel-heading">
+                <div>
+                    <h2 class="panel-title">Master modules</h2>
+                    <p class="panel-subtitle">Direct access to all client-facing setup screens.</p>
+                </div>
+            </div>
+
+            <div class="quick-links-grid">
+                @foreach (var module in MasterModules)
+                {
+                    <a class="quick-link-card" href="@module.Href">
+                        <span class="quick-link-badge">@module.Code</span>
+                        <div>
+                            <strong>@module.Title</strong>
+                            <p>@module.Description</p>
+                        </div>
+                        <span class="link-note">@module.Note</span>
+                    </a>
+                }
+            </div>
+        </section>
+
+        <section class="panel">
+            <div class="panel-heading">
+                <div>
+                    <h2 class="panel-title">Priority actions</h2>
+                    <p class="panel-subtitle">Recommended checks before the next client handover.</p>
+                </div>
+            </div>
+
+            <div class="activity-list">
+                @foreach (var action in PriorityActions)
+                {
+                    <article class="activity-item">
+                        <div class="activity-marker @action.AccentClass"></div>
+                        <div class="activity-copy">
+                            <strong>@action.Title</strong>
+                            <p>@action.Description</p>
+                        </div>
+                        <span class="activity-time">@action.When</span>
+                    </article>
+                }
+            </div>
+        </section>
+    </div>
+</section>
+
+@code {
+    private const int StorageUtilization = 78;
+
+    private static readonly DashboardMetric[] DashboardMetrics =
+    {
+        new("Active Users", "148", "12 users pending right review", "metric-card-teal"),
+        new("Printers Online", "18", "2 devices awaiting IP confirmation", "metric-card-amber"),
+        new("Roles Configured", "06", "1 custom role added this week", "metric-card-slate"),
+        new("Menus Published", "24", "All client routes mapped", "metric-card-cyan")
+    };
+
+    private static readonly ActivityChartPoint[] ActivityChart =
+    {
+        new("Apr", 48, 42, 72, 63),
+        new("May", 56, 49, 82, 72),
+        new("Jun", 60, 52, 88, 76),
+        new("Jul", 64, 58, 94, 84),
+        new("Aug", 70, 61, 100, 88),
+        new("Sep", 66, 55, 94, 79)
+    };
+
+    private static readonly LegendMetric[] UtilizationLegend =
+    {
+        new("Rack capacity", "312 bins in use", "legend-teal"),
+        new("Dispatch staging", "44 loads queued", "legend-amber"),
+        new("Admin readiness", "4 masters synchronized", "legend-cyan")
+    };
+
+    private static readonly ModuleLink[] MasterModules =
+    {
+        new("UM", "User Master", "Create users, set passwords, and assign operational rights.", "user-master", "Security"),
+        new("RM", "Role Master", "Configure warehouse roles and decide menu availability.", "role-master", "Access"),
+        new("PM", "Printer Master", "Register printer IDs, ports, and activation status.", "printer-master", "Devices"),
+        new("MM", "Menu Master", "Review client navigation groups and route-level visibility.", "menu-master", "Navigation")
+    };
+
+    private static readonly ActivityTask[] PriorityActions =
+    {
+        new("Review newly created dispatch users", "Validate roles before they receive printer and menu access.", "09:30 AM", "activity-teal"),
+        new("Confirm IP address mapping for dock printers", "Cross-check printer IDs with their assigned warehouse zones.", "11:15 AM", "activity-amber"),
+        new("Publish menu visibility for supervisors", "Ensure the menu master reflects the latest role matrix.", "02:00 PM", "activity-cyan"),
+        new("Audit inactive accounts", "Deactivate dormant users before the evening operational shift.", "04:45 PM", "activity-slate")
+    };
+
+    private sealed record DashboardMetric(string Label, string Value, string Meta, string AccentClass);
+    private sealed record ActivityChartPoint(string Month, int Inbound, int Outbound, int InboundPercent, int OutboundPercent);
+    private sealed record LegendMetric(string Label, string Value, string AccentClass);
+    private sealed record ModuleLink(string Code, string Title, string Description, string Href, string Note);
+    private sealed record ActivityTask(string Title, string Description, string When, string AccentClass);
+}

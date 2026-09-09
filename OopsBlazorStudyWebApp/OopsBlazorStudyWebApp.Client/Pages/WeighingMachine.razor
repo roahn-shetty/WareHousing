@@ -1,0 +1,130 @@
+﻿@page "/weighing-machine"
+@* @rendermode InteractiveWebAssembly *@
+@rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
+@using System.Net.Http.Json
+@using OopsBlazorStudyWebApp.Client.Model
+
+@inject HttpClient Http
+
+<h3>Weighing Machine</h3>
+
+<div class="machine-card">
+
+    <div class="mb-3">
+        <label class="form-label">
+            Weighing Machine Name
+        </label>
+
+        <input class="form-control"
+               @bind="machineName" />
+    </div>
+
+    <button class="btn btn-primary"
+            @onclick="FetchWeight"
+            disabled="@isLoading">
+
+        @(isLoading ? "Fetching..." : "Fetch Weight")
+
+    </button>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger mt-3">
+            @errorMessage
+        </div>
+    }
+
+    @if (weight != null)
+    {
+        <div class="weight-box">
+
+            <small>Current Weight</small>
+
+            <h1>
+                @weight.Value.ToString("0.000")
+                <span>KG</span>
+            </h1>
+
+        </div>
+    }
+
+</div>
+
+@code {
+
+    private string machineName = "Weighing Machine 1";
+
+    private double? weight;
+
+    private bool isLoading;
+
+    private string errorMessage = string.Empty;
+
+    private async Task FetchWeight()
+    {
+        try
+        {
+            isLoading = true;
+            errorMessage = string.Empty;
+
+            var response =
+                await Http.GetFromJsonAsync<WeightResponse>(
+                    "api/WeighingMachine/weight");
+
+            if (response is null)
+            {
+                errorMessage = "No response received.";
+                return;
+            }
+
+            if (response.Success)
+            {
+                weight = response.Weight;
+            }
+            else
+            {
+                errorMessage = "Unable to fetch weight.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}
+<style>
+
+    .machine-card {
+        max-width: 500px;
+        margin-top: 20px;
+        padding: 25px;
+        border: 1px solid #ddd;
+        border-radius: 10px;
+    }
+
+    .weight-box {
+        margin-top: 25px;
+        padding: 25px;
+        text-align: center;
+        background: #f8f9fa;
+        border-radius: 10px;
+    }
+
+    .weight-box small {
+        font-size: 14px;
+    }
+
+    .weight-box h1 {
+        margin-top: 8px;
+        font-size: 40px;
+    }
+
+    .weight-box h1 span {
+        font-size: 20px;
+    }
+
+</style>

@@ -1,0 +1,177 @@
+.navbar-toggler {
+    appearance: none;
+    cursor: pointer;
+    width: 3.25rem;
+    height: 2.5rem;
+    color: white;
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 14px;
+    background: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%28255, 255, 255, 0.75%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e") no-repeat center/1.6rem rgba(255, 255, 255, 0.08);
+}
+
+.navbar-toggler:checked {
+    background-color: rgba(255, 255, 255, 0.18);
+}
+
+.top-row {
+    min-height: 5.2rem;
+    background: transparent;
+    padding: 1.25rem 1.25rem 1rem;
+}
+
+.brand-shell {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+}
+
+.brand-mark {
+    width: 3rem;
+    height: 3rem;
+    border-radius: 16px;
+    display: grid;
+    place-items: center;
+    color: #0f2e45;
+    font-weight: 800;
+    background: linear-gradient(135deg, #f7c948, #f59e0b);
+    box-shadow: 0 14px 28px rgba(0, 0, 0, 0.18);
+}
+
+.brand-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 0.12rem;
+}
+
+.brand-kicker {
+    color: rgba(223, 238, 245, 0.72);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+.navbar-brand {
+    color: #f5fbff;
+    font-family: "Bahnschrift", "Trebuchet MS", sans-serif;
+    font-size: 1.2rem;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.nav-shell {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    padding: 0 0.85rem 1.1rem;
+}
+
+.nav-section {
+    padding: 0.7rem 0.6rem 0 0.6rem;
+}
+
+.nav-section-title {
+    margin: 0;
+    color: rgba(220, 237, 245, 0.68);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+.nav-item {
+    padding: 0 0.35rem;
+}
+
+    .nav-item ::deep .nav-link {
+        color: #dceef7;
+        border: 1px solid transparent;
+        border-radius: 18px;
+        min-height: 4rem;
+        display: flex;
+        align-items: center;
+        gap: 0.85rem;
+        padding: 0.9rem 0.95rem;
+        text-decoration: none;
+        width: 100%;
+        transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+    }
+
+.nav-item ::deep a.active {
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(255, 255, 255, 0.12);
+    color: #ffffff;
+    box-shadow: 0 14px 24px rgba(4, 15, 25, 0.18);
+}
+
+.nav-item ::deep .nav-link:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.12);
+    color: white;
+    transform: translateX(2px);
+}
+
+.nav-item ::deep .nav-marker {
+    width: 2.35rem;
+    height: 2.35rem;
+    border-radius: 14px;
+    display: grid;
+    place-items: center;
+    background: rgba(255, 255, 255, 0.12);
+    color: #f6fbff;
+    font-size: 0.76rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+}
+
+.nav-item ::deep a.active .nav-marker {
+    background: linear-gradient(135deg, #f7c948, #f59e0b);
+    color: #0f2e45;
+}
+
+.nav-item ::deep .nav-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 0.16rem;
+}
+
+.nav-item ::deep .nav-copy strong {
+    font-size: 0.98rem;
+    font-weight: 700;
+}
+
+.nav-item ::deep .nav-copy small {
+    color: rgba(220, 238, 247, 0.72);
+    font-size: 0.77rem;
+    line-height: 1.35;
+}
+
+.nav-scrollable {
+    display: none;
+    padding-bottom: 1rem;
+}
+
+.navbar-toggler:checked ~ .nav-scrollable {
+    display: block;
+}
+
+@media (min-width: 901px) {
+    .navbar-toggler {
+        display: none;
+    }
+
+    .nav-scrollable {
+        display: block;
+        height: calc(100vh - 5.2rem);
+        overflow-y: auto;
+    }
+}
+
+@media (max-width: 900px) {
+    .nav-shell {
+        padding-bottom: 0.8rem;
+    }
+}

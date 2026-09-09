@@ -1,0 +1,156 @@
+.page {
+    display: flex;
+    min-height: 100vh;
+    background:
+        radial-gradient(circle at top left, rgba(14, 116, 144, 0.12), transparent 30%),
+        radial-gradient(circle at bottom right, rgba(245, 158, 11, 0.10), transparent 32%),
+        #f4f7fb;
+}
+
+.workspace {
+    flex: 1;
+    min-width: 0;
+}
+
+.sidebar {
+    background: linear-gradient(180deg, #0e2438 0%, #123b59 48%, #145b73 100%);
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.top-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.25rem;
+    padding: 1.5rem 1.75rem 0.5rem;
+}
+
+.header-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.header-kicker {
+    margin: 0;
+    color: #5f7285;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+.header-title-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.header-title-wrap h2 {
+    margin: 0;
+    color: #13344b;
+    font-family: "Bahnschrift", "Trebuchet MS", sans-serif;
+    font-size: clamp(1.6rem, 2vw, 2.1rem);
+    font-weight: 700;
+}
+
+.header-title-wrap p {
+    margin: 0;
+    color: #5f7285;
+    font-size: 0.98rem;
+}
+
+.header-signals {
+    display: flex;
+    align-items: stretch;
+    gap: 0.9rem;
+}
+
+.signal-card {
+    min-width: 138px;
+    padding: 0.95rem 1rem;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.82);
+    border: 1px solid rgba(19, 52, 75, 0.08);
+    box-shadow: 0 18px 40px rgba(17, 39, 58, 0.08);
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.signal-card-accent {
+    background: linear-gradient(135deg, #0f766e, #164e63);
+    color: #f8fcff;
+}
+
+.signal-card strong {
+    font-size: 1.05rem;
+    font-weight: 700;
+}
+
+.signal-label {
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    opacity: 0.82;
+}
+
+.content {
+    padding: 0 1.75rem 1.75rem;
+}
+
+#blazor-error-ui {
+    color-scheme: light only;
+    background: #fff4d6;
+    bottom: 0;
+    box-shadow: 0 -1px 10px rgba(0, 0, 0, 0.18);
+    box-sizing: border-box;
+    display: none;
+    left: 0;
+    padding: 0.75rem 1.25rem;
+    position: fixed;
+    width: 100%;
+    z-index: 1000;
+}
+
+#blazor-error-ui .dismiss {
+    cursor: pointer;
+    position: absolute;
+    right: 0.75rem;
+    top: 0.5rem;
+}
+
+@media (max-width: 900px) {
+    .page {
+        flex-direction: column;
+    }
+
+    .top-row {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 1.25rem 1rem 0.35rem;
+    }
+
+    .header-signals {
+        width: 100%;
+    }
+
+    .signal-card {
+        flex: 1;
+    }
+
+    .content {
+        padding: 0 1rem 1rem;
+    }
+}
+
+@media (max-width: 640px) {
+    .header-signals {
+        flex-direction: column;
+    }
+
+    .signal-card {
+        width: 100%;
+    }
+}

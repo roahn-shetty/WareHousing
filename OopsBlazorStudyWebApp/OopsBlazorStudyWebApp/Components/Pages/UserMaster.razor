@@ -1,0 +1,458 @@
+@page "/user-master"
+@rendermode InteractiveServer
+
+<PageTitle>User Master</PageTitle>
+
+<section class="master-shell">
+    <div class="master-header">
+        <div>
+            <p class="section-kicker">Security Administration</p>
+            <h1 class="page-title">User Master</h1>
+            <p class="page-subtitle">
+                Create and update warehouse users through the API, with roles and credentials stored in SQL Server.
+            </p>
+        </div>
+        <div class="header-note-card">
+            <span class="header-note-label">API connected</span>
+            <strong>@users.Count users loaded</strong>
+            <p>@roles.Count active roles available for assignment.</p>
+        </div>
+    </div>
+
+    <div class="master-tabs">
+        <button type="button" class="master-tab @(activeTab == UserTab.Create ? "active" : string.Empty)" @onclick="() => activeTab = UserTab.Create">Create User</button>
+        <button type="button" class="master-tab @(activeTab == UserTab.Update ? "active" : string.Empty)" @onclick="() => activeTab = UserTab.Update">Update User</button>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <div class="validation-summary">@errorMessage</div>
+    }
+
+    <div class="master-content-grid @(activeTab == UserTab.Update ? "update-grid" : string.Empty)">
+        <section class="panel panel-large">
+            <div class="panel-heading">
+                <div>
+                    <h2 class="panel-title">@(activeTab == UserTab.Create ? "Create new user" : "Update selected user")</h2>
+                    <p class="panel-subtitle">User ID, password, email, mobile number, remark, and role rights are saved through the API.</p>
+                </div>
+                <span class="pill @(activeTab == UserTab.Create ? "pill-teal" : "pill-amber")">SQL backed</span>
+            </div>
+
+            @if (activeTab == UserTab.Create)
+            {
+                <EditForm Model="@createModel" OnValidSubmit="@CreateUserAsync" class="master-form">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary class="validation-summary" />
+                    <div class="form-grid">
+                        <div class="field-block">
+                            <label class="field-label" for="create-user-name">User Name</label>
+                            <InputText id="create-user-name" class="field-input" @bind-Value="createModel.UserName" />
+                        </div>
+                        <div class="field-block">
+                            <label class="field-label" for="create-user-id">User ID</label>
+                            <InputText id="create-user-id" class="field-input" @bind-Value="createModel.UserId" />
+                        </div>
+                        <div class="field-block">
+                            <label class="field-label" for="create-password">Password</label>
+                            <InputText id="create-password" class="field-input" type="password" @bind-Value="createModel.Password" />
+                        </div>
+                        <div class="field-block">
+                            <label class="field-label" for="create-confirm-password">Confirm Password</label>
+                            <InputText id="create-confirm-password" class="field-input" type="password" @bind-Value="createModel.ConfirmPassword" />
+                        </div>
+                        <div class="field-block">
+                            <label class="field-label" for="create-email">Email Address</label>
+                            <InputText id="create-email" class="field-input" @bind-Value="createModel.EmailAddress" />
+                        </div>
+                        <div class="field-block">
+                            <label class="field-label" for="create-mobile">Mobile No</label>
+                            <InputText id="create-mobile" class="field-input" @bind-Value="createModel.MobileNo" />
+                        </div>
+                        <div class="field-block field-block-full">
+                            <label class="field-label">Select Rights</label>
+                            <div class="selection-grid">
+                                @foreach (var role in roles)
+                                {
+                                    <label class="selection-chip">
+                                        <input type="checkbox" checked="@createModel.SelectedRoleIds.Contains(role.RoleId)" @onchange="@(args => ToggleRole(createModel, role.RoleId, args))" />
+                                        <span>@role.RoleName (@role.RoleCode)</span>
+                                    </label>
+                                }
+                            </div>
+                        </div>
+                        <div class="field-block field-block-full">
+                            <label class="field-label" for="create-remark">Remark</label>
+                            <InputTextArea id="create-remark" class="field-input field-textarea" @bind-Value="createModel.Remark" />
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn-primary-action" disabled="@isBusy">Create User</button>
+                        <button type="button" class="btn-secondary-action" @onclick="ResetCreateForm" disabled="@isBusy">Clear</button>
+                    </div>
+                </EditForm>
+            }
+            else
+            {
+                <EditForm Model="@updateModel" class="master-form">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary class="validation-summary" />
+                    <div class="form-grid">
+                        <div class="field-block">
+                            <label class="field-label" for="update-user-name">User Name</label>
+                            <InputText id="update-user-name" class="field-input field-input-readonly" @bind-Value="updateModel.UserName" readonly />
+                        </div>
+                        <div class="field-block">
+                            <label class="field-label" for="update-user-id">User ID</label>
+                            <InputText id="update-user-id" class="field-input field-input-readonly" @bind-Value="updateModel.UserId" readonly />
+                        </div>
+                        <div class="field-block">
+                            <label class="field-label" for="update-password">Password</label>
+                            <InputText id="update-password" class="field-input" type="password" autocomplete="new-password" @bind-Value="updateModel.Password" />
+                        </div>
+                        <div class="field-block">
+                            <label class="field-label" for="update-confirm-password">Confirm Password</label>
+                            <InputText id="update-confirm-password" class="field-input" type="password" autocomplete="new-password" @bind-Value="updateModel.ConfirmPassword" />
+                        </div>
+                        <div class="field-block">
+                            <label class="field-label" for="update-email">Email Address</label>
+                            <InputText id="update-email" class="field-input" @bind-Value="updateModel.EmailAddress" />
+                        </div>
+                        <div class="field-block">
+                            <label class="field-label" for="update-mobile">Mobile No</label>
+                            <InputText id="update-mobile" class="field-input" @bind-Value="updateModel.MobileNo" />
+                        </div>
+                        <div class="field-block field-block-full">
+                            <label class="field-label">Select Rights</label>
+                            <div class="selection-grid">
+                                @foreach (var role in roles)
+                                {
+                                    <label class="selection-chip">
+                                        <input type="checkbox" checked="@updateModel.SelectedRoleIds.Contains(role.RoleId)" @onchange="@(args => ToggleRole(updateModel, role.RoleId, args))" />
+                                        <span>@role.RoleName (@role.RoleCode)</span>
+                                    </label>
+                                }
+                            </div>
+                        </div>
+                        <div class="field-block field-block-full">
+                            <label class="field-label" for="update-remark">Remark</label>
+                            <InputTextArea id="update-remark" class="field-input field-textarea" @bind-Value="updateModel.Remark" />
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" class="btn-primary-action" @onclick="UpdateUserAsync" disabled="@isBusy || updateModel.UserMasterId <= 0">Update User</button>
+                    </div>
+                </EditForm>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(statusMessage))
+            {
+                <p class="form-status">@statusMessage</p>
+            }
+        </section>
+
+        <aside class="panel side-panel">
+            <div class="panel-heading">
+                <div>
+                    <h2 class="panel-title">Existing users</h2>
+                    <p class="panel-subtitle">Select a record to switch the form into update mode.</p>
+                </div>
+            </div>
+
+            <div class="record-list">
+                @foreach (var user in users)
+                {
+                    <button type="button" class="record-tile @(selectedUserId == user.UserMasterId ? "selected" : string.Empty)" @onclick="() => SelectUserAsync(user.UserMasterId)">
+                        <strong>@user.UserName</strong>
+                        <span>@user.UserId</span>
+                        <small>@user.SelectedRoles</small>
+                    </button>
+                }
+            </div>
+
+            <div class="summary-stack">
+                <div class="summary-card">
+                    <span class="summary-label">Role snapshot</span>
+                    @if (selectedRoleNames.Count == 0)
+                    {
+                        <p class="empty-state">No role selected yet.</p>
+                    }
+                    else
+                    {
+                        <div class="chip-list">
+                            @foreach (var roleName in selectedRoleNames)
+                            {
+                                <span class="chip">@roleName</span>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        </aside>
+    </div>
+</section>
+
+@code {
+    private readonly HttpClient apiClient;
+    private List<RoleLookupDto> roles = new();
+    private List<UserMasterListDto> users = new();
+    private readonly List<string> selectedRoleNames = new();
+    private UserMasterFormModel createModel = new();
+    private UserMasterFormModel updateModel = new();
+    private UserTab activeTab = UserTab.Create;
+    private int selectedUserId;
+    private bool isBusy;
+    private string statusMessage = string.Empty;
+    private string errorMessage = string.Empty;
+
+    public UserMaster()
+    {
+        apiClient = new HttpClient();
+    }
+
+    [Inject]
+    private NavigationManager NavigationManager { get; set; } = default!;
+
+    protected override void OnInitialized()
+    {
+        apiClient.BaseAddress = new Uri(NavigationManager.BaseUri);
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+        ResetCreateForm();
+
+        if (users.Count > 0)
+        {
+            await SelectUserAsync(users[0].UserMasterId, switchTab: false);
+        }
+    }
+
+    private async Task LoadDataAsync()
+    {
+        roles = await apiClient.GetFromJsonAsync<List<RoleLookupDto>>("api/usermaster/roles") ?? new List<RoleLookupDto>();
+        users = await apiClient.GetFromJsonAsync<List<UserMasterListDto>>("api/usermaster") ?? new List<UserMasterListDto>();
+    }
+
+    private async Task CreateUserAsync()
+    {
+        if (string.IsNullOrWhiteSpace(createModel.Password) || string.IsNullOrWhiteSpace(createModel.ConfirmPassword))
+        {
+            errorMessage = "Password and Confirm Password are required for new users.";
+            return;
+        }
+
+        if (!string.Equals(createModel.Password, createModel.ConfirmPassword, StringComparison.Ordinal))
+        {
+            errorMessage = "Password and Confirm Password must match.";
+            return;
+        }
+
+        await SaveAsync("api/usermaster", createModel.ToRequest(), async _ =>
+        {
+            statusMessage = "User created successfully.";
+            ResetCreateForm();
+            await LoadDataAsync();
+        });
+    }
+
+    private async Task UpdateUserAsync()
+    {
+        if (updateModel.UserMasterId <= 0)
+        {
+            errorMessage = "Select a user first.";
+            return;
+        }
+
+        var validationResults = new List<ValidationResult>();
+        var validationContext = new ValidationContext(updateModel);
+        if (!Validator.TryValidateObject(updateModel, validationContext, validationResults, true))
+        {
+            errorMessage = string.Join(" ", validationResults.Select(result => result.ErrorMessage).Where(message => !string.IsNullOrWhiteSpace(message)));
+            return;
+        }
+
+        await SaveAsync($"api/usermaster/{updateModel.UserMasterId}", updateModel.ToRequest(), async _ =>
+        {
+            statusMessage = "User updated successfully.";
+            await LoadDataAsync();
+            await SelectUserAsync(updateModel.UserMasterId);
+        }, isPut: true);
+    }
+
+    private async Task SaveAsync(string url, UserMasterSaveRequest request, Func<HttpResponseMessage, Task> onSuccess, bool isPut = false)
+    {
+        isBusy = true;
+        statusMessage = string.Empty;
+        errorMessage = string.Empty;
+
+        try
+        {
+            var response = isPut
+                ? await apiClient.PutAsJsonAsync(url, request)
+                : await apiClient.PostAsJsonAsync(url, request);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                errorMessage = await ReadErrorAsync(response);
+                return;
+            }
+
+            await onSuccess(response);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private async Task SelectUserAsync(int userMasterId, bool switchTab = true)
+    {
+        isBusy = true;
+        errorMessage = string.Empty;
+
+        try
+        {
+            var user = await apiClient.GetFromJsonAsync<UserMasterDetailDto>($"api/usermaster/{userMasterId}");
+            if (user is null)
+            {
+                errorMessage = "User not found.";
+                return;
+            }
+
+            selectedUserId = user.UserMasterId;
+            updateModel = UserMasterFormModel.FromDetail(user);
+            updateModel.UserMasterId = user.UserMasterId;
+            selectedRoleNames.Clear();
+            selectedRoleNames.AddRange(roles.Where(r => updateModel.SelectedRoleIds.Contains(r.RoleId)).Select(r => r.RoleName));
+            if (switchTab)
+            {
+                activeTab = UserTab.Update;
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private void ToggleRole(UserMasterFormModel model, int roleId, ChangeEventArgs args)
+    {
+        var isChecked = args.Value switch
+        {
+            bool boolValue => boolValue,
+            string stringValue when bool.TryParse(stringValue, out var parsedValue) => parsedValue,
+            _ => false
+        };
+
+        if (isChecked)
+        {
+            if (!model.SelectedRoleIds.Contains(roleId))
+            {
+                model.SelectedRoleIds.Add(roleId);
+            }
+        }
+        else
+        {
+            model.SelectedRoleIds.Remove(roleId);
+        }
+
+        if (ReferenceEquals(model, updateModel))
+        {
+            selectedRoleNames.Clear();
+            selectedRoleNames.AddRange(roles.Where(r => model.SelectedRoleIds.Contains(r.RoleId)).Select(r => r.RoleName));
+        }
+    }
+
+    private void ResetCreateForm()
+    {
+        createModel = new UserMasterFormModel();
+    }
+
+    private async Task<string> ReadErrorAsync(HttpResponseMessage response)
+    {
+        var payload = await response.Content.ReadAsStringAsync();
+        return string.IsNullOrWhiteSpace(payload) ? $"Request failed with {(int)response.StatusCode}." : payload;
+    }
+
+    private enum UserTab
+    {
+        Create,
+        Update
+    }
+
+    private sealed class UserMasterFormModel : IValidatableObject
+    {
+        public int UserMasterId { get; set; }
+
+        [Required]
+        public string UserName { get; set; } = string.Empty;
+
+        [Required]
+        public string UserId { get; set; } = string.Empty;
+
+        public string Password { get; set; } = string.Empty;
+
+        [Compare(nameof(Password), ErrorMessage = "Password and Confirm Password must match.")]
+        public string ConfirmPassword { get; set; } = string.Empty;
+
+        [Required]
+        [EmailAddress]
+        public string EmailAddress { get; set; } = string.Empty;
+
+        [Required]
+        [RegularExpression(@"^\d{10,15}$", ErrorMessage = "Enter a valid mobile number.")]
+        public string MobileNo { get; set; } = string.Empty;
+
+        public string Remark { get; set; } = string.Empty;
+
+        public List<int> SelectedRoleIds { get; set; } = new();
+
+        public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+        {
+            if (SelectedRoleIds.Count == 0)
+            {
+                yield return new ValidationResult("Select at least one role.", new[] { nameof(SelectedRoleIds) });
+            }
+        }
+
+        public static UserMasterFormModel FromDetail(UserMasterDetailDto detail) =>
+            new()
+            {
+                UserMasterId = detail.UserMasterId,
+                UserName = detail.UserName,
+                UserId = detail.UserId,
+                Password = detail.Password,
+                ConfirmPassword = detail.Password,
+                EmailAddress = detail.EmailAddress,
+                MobileNo = detail.MobileNo,
+                Remark = detail.Remark,
+                SelectedRoleIds = detail.SelectedRoleIds.ToList()
+            };
+
+        public UserMasterSaveRequest ToRequest() =>
+            new()
+            {
+                UserName = UserName,
+                UserId = UserId,
+                Password = Password,
+                ConfirmPassword = ConfirmPassword,
+                EmailAddress = EmailAddress,
+                MobileNo = MobileNo,
+                Remark = Remark,
+                SelectedRoleIds = SelectedRoleIds.ToList(),
+                IsActive = true
+            };
+    }
+}

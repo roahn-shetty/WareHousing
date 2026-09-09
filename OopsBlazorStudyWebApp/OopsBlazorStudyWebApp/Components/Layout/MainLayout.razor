@@ -1,0 +1,73 @@
+﻿@inherits LayoutComponentBase
+
+@inject NavigationManager NavigationManager
+
+<div class="page">
+    <div class="sidebar">
+        <NavMenu />
+    </div>
+
+    <main class="workspace">
+        <div class="top-row">
+            <div class="header-copy">
+                <p class="header-kicker">Warehouse Management System</p>
+                <div class="header-title-wrap">
+                    <h2>@GetCurrentTitle()</h2>
+                    <p>@GetCurrentSubtitle()</p>
+                </div>
+            </div>
+            <div class="header-signals">
+                <div class="signal-card">
+                    <span class="signal-label">Client Status</span>
+                    <strong>Online</strong>
+                </div>
+                <div class="signal-card signal-card-accent">
+                    <span class="signal-label">Active Masters</span>
+                    <strong>4 Modules</strong>
+                </div>
+            </div>
+        </div>
+
+        <article class="content">
+            @Body
+        </article>
+    </main>
+</div>
+
+@code {
+    private string GetCurrentTitle()
+    {
+        var route = NavigationManager.ToBaseRelativePath(NavigationManager.Uri).Trim('/').ToLowerInvariant();
+
+        return route switch
+        {
+            "" => "Dashboard",
+            "user-master" => "User Master",
+            "role-master" => "Role Master",
+            "printer-master" => "Printer Master",
+            "menu-master" => "Menu Master",
+            _ => "Warehouse Workspace"
+        };
+    }
+
+    private string GetCurrentSubtitle()
+    {
+        var route = NavigationManager.ToBaseRelativePath(NavigationManager.Uri).Trim('/').ToLowerInvariant();
+
+        return route switch
+        {
+            "" => "Client overview, access trends, and master-module activity.",
+            "user-master" => "Create users, assign rights, and update access records.",
+            "role-master" => "Maintain warehouse roles and their menu permissions.",
+            "printer-master" => "Register printers and monitor network print endpoints.",
+            "menu-master" => "Review navigation structure and role-wise menu visibility.",
+            _ => "Operational workspace for client-facing warehouse controls."
+        };
+    }
+}
+
+<div id="blazor-error-ui" data-nosnippet>
+    An unhandled error has occurred.
+    <a href="." class="reload">Reload</a>
+    <span class="dismiss">🗙</span>
+</div>

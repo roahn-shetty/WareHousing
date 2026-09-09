@@ -1,0 +1,74 @@
+﻿<div class="top-row ps-3 navbar navbar-dark">
+    <div class="brand-shell">
+        <div class="brand-mark">WM</div>
+        <div class="brand-copy">
+            <span class="brand-kicker">Client Console</span>
+            <a class="navbar-brand" href="">SLN Warehouse</a>
+        </div>
+    </div>
+</div>
+
+<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+
+<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
+    <nav class="nav-shell">
+        <div class="nav-section">
+            <p class="nav-section-title">Control Tower</p>
+        </div>
+
+        <div class="nav-item">
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                <span class="nav-marker">DB</span>
+                <span class="nav-copy">
+                    <strong>Dashboard</strong>
+                    <small>Graphs and warehouse overview</small>
+                </span>
+            </NavLink>
+        </div>
+
+        <div class="nav-section">
+            <p class="nav-section-title">Master Setup</p>
+        </div>
+
+        <div class="nav-item">
+            <NavLink class="nav-link" href="user-master">
+                <span class="nav-marker">UM</span>
+                <span class="nav-copy">
+                    <strong>User Master</strong>
+                    <small>Create and update users</small>
+                </span>
+            </NavLink>
+        </div>
+
+        <div class="nav-item">
+            <NavLink class="nav-link" href="role-master">
+                <span class="nav-marker">RM</span>
+                <span class="nav-copy">
+                    <strong>Role Master</strong>
+                    <small>Access groups and permissions</small>
+                </span>
+            </NavLink>
+        </div>
+
+        <div class="nav-item">
+            <NavLink class="nav-link" href="printer-master">
+                <span class="nav-marker">PM</span>
+                <span class="nav-copy">
+                    <strong>Printer Master</strong>
+                    <small>Printer endpoints and status</small>
+                </span>
+            </NavLink>
+        </div>
+
+        <div class="nav-item">
+            <NavLink class="nav-link" href="menu-master">
+                <span class="nav-marker">MM</span>
+                <span class="nav-copy">
+                    <strong>Menu Master</strong>
+                    <small>Navigation and role mapping</small>
+                </span>
+            </NavLink>
+        </div>
+    </nav>
+</div>
+
