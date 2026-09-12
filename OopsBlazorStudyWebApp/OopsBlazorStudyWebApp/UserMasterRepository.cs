@@ -129,27 +129,78 @@ public sealed class SqlUserMasterRepository : IUserMasterRepository
 
     public async Task<bool> UpdateUserAsync(int userMasterId, UserMasterSaveRequest request, CancellationToken cancellationToken = default)
     {
-        var (passwordHash, passwordSalt) = string.IsNullOrWhiteSpace(request.Password)
-            ? await GetExistingPasswordAsync(userMasterId, cancellationToken)
-            : HashPassword(request.Password);
-        var roleIds = string.Join(",", request.SelectedRoleIds.Distinct().OrderBy(x => x));
+        var (passwordHash, passwordSalt) = await GetExistingPasswordAsync(userMasterId, cancellationToken);
+        var roleIds = request.SelectedRoleIds.Distinct().OrderBy(x => x).ToList();
 
         await using var connection = new SqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
+        await using var transaction = (SqlTransaction)await connection.BeginTransactionAsync(cancellationToken);
 
-        await using var command = new SqlCommand("dbo.usp_UserMaster_Update", connection)
+        try
         {
-            CommandType = CommandType.StoredProcedure
-        };
+            await using var updateCommand = new SqlCommand(
+                """
+                UPDATE dbo.UserMaster
+                SET
+                    UserId = @UserId,
+                    UserName = @UserName,
+                    PasswordHash = @PasswordHash,
+                    PasswordSalt = @PasswordSalt,
+                    EmailAddress = @EmailAddress,
+                    MobileNo = @MobileNo,
+                    Remark = @Remark,
+                    IsActive = @IsActive,
+                    UpdatedOn = SYSUTCDATETIME()
+                WHERE UserMasterId = @UserMasterId;
+                """,
+                connection,
+                transaction);
 
-        command.Parameters.AddWithValue("@UserMasterId", userMasterId);
-        AddUserParameters(command, request, passwordHash, passwordSalt, roleIds);
+            updateCommand.Parameters.AddWithValue("@UserMasterId", userMasterId);
+            AddUserParameters(updateCommand, request, passwordHash, passwordSalt);
 
-        var result = await command.ExecuteScalarAsync(cancellationToken);
-        return Convert.ToInt32(result, System.Globalization.CultureInfo.InvariantCulture) > 0;
+            var rowsAffected = await updateCommand.ExecuteNonQueryAsync(cancellationToken);
+            if (rowsAffected == 0)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return false;
+            }
+
+            await using var deleteCommand = new SqlCommand(
+                "DELETE FROM dbo.UserMasterRoleMap WHERE UserMasterId = @UserMasterId;",
+                connection,
+                transaction);
+            deleteCommand.Parameters.AddWithValue("@UserMasterId", userMasterId);
+            await deleteCommand.ExecuteNonQueryAsync(cancellationToken);
+
+            foreach (var roleId in roleIds)
+            {
+                await using var roleCommand = new SqlCommand(
+                    "INSERT INTO dbo.UserMasterRoleMap (UserMasterId, RoleId) VALUES (@UserMasterId, @RoleId);",
+                    connection,
+                    transaction);
+                roleCommand.Parameters.AddWithValue("@UserMasterId", userMasterId);
+                roleCommand.Parameters.AddWithValue("@RoleId", roleId);
+                await roleCommand.ExecuteNonQueryAsync(cancellationToken);
+            }
+
+            await transaction.CommitAsync(cancellationToken);
+            return true;
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
     }
 
     private static void AddUserParameters(SqlCommand command, UserMasterSaveRequest request, byte[] passwordHash, byte[] passwordSalt, string roleIds)
+    {
+        AddUserParameters(command, request, passwordHash, passwordSalt);
+        command.Parameters.AddWithValue("@SelectedRoleIds", roleIds);
+    }
+
+    private static void AddUserParameters(SqlCommand command, UserMasterSaveRequest request, byte[] passwordHash, byte[] passwordSalt)
     {
         command.Parameters.AddWithValue("@UserId", request.UserId);
         command.Parameters.AddWithValue("@UserName", request.UserName);
@@ -159,7 +210,6 @@ public sealed class SqlUserMasterRepository : IUserMasterRepository
         command.Parameters.AddWithValue("@MobileNo", request.MobileNo);
         command.Parameters.AddWithValue("@Remark", string.IsNullOrWhiteSpace(request.Remark) ? DBNull.Value : request.Remark);
         command.Parameters.AddWithValue("@IsActive", request.IsActive);
-        command.Parameters.AddWithValue("@SelectedRoleIds", roleIds);
     }
 
     private static UserMasterListDto ReadUserListItem(SqlDataReader reader)

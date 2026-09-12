@@ -1,6 +1,7 @@
 ﻿@inherits LayoutComponentBase
 
 @inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
 
 <div class="page">
     <div class="sidebar">
@@ -17,6 +18,17 @@
                 </div>
             </div>
             <div class="header-signals">
+                @if (isAuthenticated)
+                {
+                    <div class="signal-card">
+                        <span class="signal-label">Logged In</span>
+                        <strong>@loggedInUser</strong>
+                    </div>
+                }
+                else
+                {
+                    <a class="btn-primary-action header-login-link" href="login">Login</a>
+                }
                 <div class="signal-card">
                     <span class="signal-label">Client Status</span>
                     <strong>Online</strong>
@@ -25,6 +37,18 @@
                     <span class="signal-label">Active Masters</span>
                     <strong>4 Modules</strong>
                 </div>
+                @if (isAuthenticated)
+                {
+                    <form method="post" action="/api/auth/logout" class="logout-activity-form">
+                        <button type="submit" class="activity-item logout-activity-button">
+                            <span class="activity-marker activity-amber"></span>
+                            <span class="activity-copy">
+                                <strong>Logout</strong>
+                                <small>End current session</small>
+                            </span>
+                        </button>
+                    </form>
+                }
             </div>
         </div>
 
@@ -35,6 +59,16 @@
 </div>
 
 @code {
+    private bool isAuthenticated;
+    private string loggedInUser = "Guest";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        isAuthenticated = authState.User.Identity?.IsAuthenticated == true;
+        loggedInUser = authState.User.Identity?.Name ?? "Guest";
+    }
+
     private string GetCurrentTitle()
     {
         var route = NavigationManager.ToBaseRelativePath(NavigationManager.Uri).Trim('/').ToLowerInvariant();
@@ -56,7 +90,7 @@
 
         return route switch
         {
-            "" => "Client overview, access trends, and master-module activity.",
+            "" => "WMS portal overview and master-module activity.",
             "user-master" => "Create users, assign rights, and update access records.",
             "role-master" => "Maintain warehouse roles and their menu permissions.",
             "printer-master" => "Register printers and monitor network print endpoints.",

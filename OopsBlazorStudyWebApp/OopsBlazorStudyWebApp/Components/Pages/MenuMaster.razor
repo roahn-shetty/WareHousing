@@ -1,4 +1,5 @@
 @page "/menu-master"
+@rendermode InteractiveServer
 
 <PageTitle>Menu Master</PageTitle>
 
@@ -8,54 +9,88 @@
             <p class="section-kicker">Navigation Control</p>
             <h1 class="page-title">Menu Master</h1>
             <p class="page-subtitle">
-                Review the menu structure exposed to the client and align it with warehouse roles and routes.
+                Create menu names and control active status. Audit details are captured by the API and SQL procedure.
             </p>
         </div>
         <div class="header-note-card">
-            <span class="header-note-label">Menu coverage</span>
-            <strong>24 published routes</strong>
-            <p>Master links below show which roles should see each warehouse workspace.</p>
+            <span class="header-note-label">Database connected</span>
+            <strong>@menus.Count menu entries</strong>
+            <p>Records are loaded from dbo.TblMnu.</p>
         </div>
     </div>
 
-    <div class="dashboard-grid">
-        @foreach (var group in MenuGroups)
-        {
-            <section class="panel">
-                <div class="panel-heading">
-                    <div>
-                        <h2 class="panel-title">@group.Title</h2>
-                        <p class="panel-subtitle">@group.Description</p>
+    @if (!string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <div class="validation-summary">@errorMessage</div>
+    }
+
+    <div class="master-content-grid">
+        <section class="panel panel-large">
+            <div class="panel-heading">
+                <div>
+                    <h2 class="panel-title">Create menu entry</h2>
+                    <p class="panel-subtitle">Created By and Created On are generated automatically during save.</p>
+                </div>
+                <span class="pill pill-teal">TblMnu</span>
+            </div>
+
+            <EditForm Model="@menuModel" OnValidSubmit="@CreateMenuAsync" class="master-form">
+                <DataAnnotationsValidator />
+                <ValidationSummary class="validation-summary" />
+
+                <div class="form-grid">
+                    <div class="field-block">
+                        <label class="field-label" for="menu-name">MenuName</label>
+                        <InputText id="menu-name" class="field-input" @bind-Value="menuModel.MenuName" />
+                    </div>
+
+                    <div class="field-block">
+                        <label class="field-label" for="menu-status">Status</label>
+                        <InputSelect id="menu-status" class="field-input" @bind-Value="menuModel.Status">
+                            <option value="Activate">Activate</option>
+                            <option value="DeActivate">DeActivate</option>
+                        </InputSelect>
                     </div>
                 </div>
 
-                <div class="summary-stack">
-                    @foreach (var item in group.Items)
-                    {
-                        <div class="summary-card">
-                            <div class="summary-title-row">
-                                <strong>@item.Title</strong>
-                                <span class="mini-badge mini-badge-cyan">@item.Sequence</span>
-                            </div>
-                            <span class="summary-label">@item.Route</span>
-                            <div class="chip-list">
-                                @foreach (var role in item.Roles)
-                                {
-                                    <span class="chip">@role</span>
-                                }
-                            </div>
-                        </div>
-                    }
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary-action" disabled="@isBusy">Save Menu</button>
+                    <button type="button" class="btn-secondary-action" @onclick="ResetForm" disabled="@isBusy">Clear</button>
                 </div>
-            </section>
-        }
+            </EditForm>
+
+            @if (!string.IsNullOrWhiteSpace(statusMessage))
+            {
+                <p class="form-status">@statusMessage</p>
+            }
+        </section>
+
+        <aside class="panel side-panel">
+            <div class="panel-heading">
+                <div>
+                    <h2 class="panel-title">Menu summary</h2>
+                    <p class="panel-subtitle">Current status split from SQL Server.</p>
+                </div>
+            </div>
+
+            <div class="summary-stack">
+                <div class="summary-card">
+                    <span class="summary-label">Active menus</span>
+                    <strong class="summary-number">@menus.Count(menu => menu.Status == "Activate")</strong>
+                </div>
+                <div class="summary-card">
+                    <span class="summary-label">Deactivated menus</span>
+                    <strong class="summary-number">@menus.Count(menu => menu.Status == "DeActivate")</strong>
+                </div>
+            </div>
+        </aside>
     </div>
 
     <section class="panel table-panel">
         <div class="panel-heading">
             <div>
-                <h2 class="panel-title">Menu matrix</h2>
-                <p class="panel-subtitle">Role-wise route visibility for the main master pages.</p>
+                <h2 class="panel-title">TblMnu records</h2>
+                <p class="panel-subtitle">Latest menu entries from SQL Server.</p>
             </div>
         </div>
 
@@ -63,23 +98,32 @@
             <table class="data-table">
                 <thead>
                     <tr>
-                        <th>Sequence</th>
-                        <th>Menu Name</th>
-                        <th>Route</th>
-                        <th>Visible To</th>
+                        <th>Id</th>
+                        <th>MenuName</th>
                         <th>Status</th>
+                        <th>Created By</th>
+                        <th>Created On</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var row in MenuRows)
+                    @if (menus.Count == 0)
                     {
                         <tr>
-                            <td>@row.Sequence</td>
-                            <td>@row.Title</td>
-                            <td>@row.Route</td>
-                            <td>@string.Join(", ", row.Roles)</td>
-                            <td>@row.Status</td>
+                            <td colspan="5">No menu entries found.</td>
                         </tr>
+                    }
+                    else
+                    {
+                        @foreach (var menu in menus)
+                        {
+                            <tr>
+                                <td>@menu.Id</td>
+                                <td>@menu.MenuName</td>
+                                <td><span class="chip">@menu.Status</span></td>
+                                <td>@menu.CreatedBy</td>
+                                <td>@menu.CreatedOn.ToString("dd-MMM-yyyy HH:mm")</td>
+                            </tr>
+                        }
                     }
                 </tbody>
             </table>
@@ -88,37 +132,120 @@
 </section>
 
 @code {
-    private static readonly MenuGroup[] MenuGroups =
-    {
-        new(
-            "Core Navigation",
-            "Primary pages shown after client login.",
-            new[]
-            {
-                new MenuItem("01", "Dashboard", "/", new[] { "Administrator", "Dispatch Supervisor", "Inventory Controller" }),
-                new MenuItem("02", "User Master", "/user-master", new[] { "Administrator", "Inventory Controller" }),
-                new MenuItem("03", "Role Master", "/role-master", new[] { "Administrator" })
-            }),
-        new(
-            "Operational Devices",
-            "Pages used for print and execution controls.",
-            new[]
-            {
-                new MenuItem("04", "Printer Master", "/printer-master", new[] { "Administrator", "Dispatch Supervisor" }),
-                new MenuItem("05", "Menu Master", "/menu-master", new[] { "Administrator" })
-            })
-    };
+    private readonly HttpClient apiClient = new();
+    private List<MenuMasterListDto> menus = new();
+    private MenuMasterFormModel menuModel = new();
+    private bool isBusy;
+    private string statusMessage = string.Empty;
+    private string errorMessage = string.Empty;
+    private string currentUserId = "System";
+    private string currentLoginAt = DateTime.Now.ToString("O", System.Globalization.CultureInfo.InvariantCulture);
 
-    private static readonly MenuRow[] MenuRows =
-    {
-        new("01", "Dashboard", "/", new[] { "Administrator", "Dispatch Supervisor", "Inventory Controller" }, "Published"),
-        new("02", "User Master", "/user-master", new[] { "Administrator", "Inventory Controller" }, "Published"),
-        new("03", "Role Master", "/role-master", new[] { "Administrator" }, "Published"),
-        new("04", "Printer Master", "/printer-master", new[] { "Administrator", "Dispatch Supervisor" }, "Published"),
-        new("05", "Menu Master", "/menu-master", new[] { "Administrator" }, "Published")
-    };
+    [Inject]
+    private NavigationManager NavigationManager { get; set; } = default!;
 
-    private sealed record MenuGroup(string Title, string Description, MenuItem[] Items);
-    private sealed record MenuItem(string Sequence, string Title, string Route, string[] Roles);
-    private sealed record MenuRow(string Sequence, string Title, string Route, string[] Roles, string Status);
+    [Inject]
+    private AuthenticationStateProvider AuthenticationStateProvider { get; set; } = default!;
+
+    protected override void OnInitialized()
+    {
+        apiClient.BaseAddress = new Uri(NavigationManager.BaseUri);
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        ResetForm();
+        await SetCurrentUserAsync();
+        await LoadMenusAsync();
+    }
+
+    private async Task LoadMenusAsync()
+    {
+        try
+        {
+            menus = await apiClient.GetFromJsonAsync<List<MenuMasterListDto>>("api/menumaster") ?? new List<MenuMasterListDto>();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Unable to load TblMnu records. {ex.Message}";
+        }
+    }
+
+    private async Task CreateMenuAsync()
+    {
+        isBusy = true;
+        statusMessage = string.Empty;
+        errorMessage = string.Empty;
+
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, "api/menumaster")
+            {
+                Content = JsonContent.Create(menuModel.ToRequest())
+            };
+            request.Headers.Add("X-Created-By", currentUserId);
+            request.Headers.Add("X-Login-At", currentLoginAt);
+
+            var response = await apiClient.SendAsync(request);
+            if (!response.IsSuccessStatusCode)
+            {
+                errorMessage = await ReadErrorAsync(response);
+                return;
+            }
+
+            statusMessage = "Menu entry saved successfully.";
+            ResetForm();
+            await LoadMenusAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private void ResetForm()
+    {
+        menuModel = new MenuMasterFormModel();
+    }
+
+    private async Task SetCurrentUserAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        if (authState.User.Identity?.IsAuthenticated == true)
+        {
+            currentUserId = authState.User.Identity.Name ?? "System";
+            currentLoginAt = authState.User.FindFirst("LoginAt")?.Value ?? currentLoginAt;
+        }
+        else
+        {
+            currentUserId = "System";
+            currentLoginAt = DateTime.Now.ToString("O", System.Globalization.CultureInfo.InvariantCulture);
+        }
+    }
+
+    private async Task<string> ReadErrorAsync(HttpResponseMessage response)
+    {
+        var payload = await response.Content.ReadAsStringAsync();
+        return string.IsNullOrWhiteSpace(payload) ? $"Request failed with {(int)response.StatusCode}." : payload;
+    }
+
+    private sealed class MenuMasterFormModel
+    {
+        [Required]
+        public string MenuName { get; set; } = string.Empty;
+
+        [Required]
+        public string Status { get; set; } = "Activate";
+
+        public MenuMasterSaveRequest ToRequest() =>
+            new()
+            {
+                MenuName = MenuName,
+                Status = Status
+            };
+    }
 }

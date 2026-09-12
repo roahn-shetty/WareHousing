@@ -1,0 +1,53 @@
+@page "/login"
+@layout Layout.LoginLayout
+
+<PageTitle>Login</PageTitle>
+
+<section class="login-shell">
+    <div class="login-brand-panel">
+        <div class="brand-mark login-brand-mark">WM</div>
+        <p class="section-kicker">Warehouse Management System</p>
+        <h1 class="page-title">Client Login</h1>
+        <p class="page-subtitle">
+            Sign in with the User ID and password stored in User Master.
+        </p>
+    </div>
+
+    <div class="login-card">
+        <div class="panel-heading">
+            <div>
+                <h2 class="panel-title">Sign in</h2>
+                <p class="panel-subtitle">Use User ID such as HMADMIN or HM998.</p>
+            </div>
+        </div>
+
+        @if (HasInvalidLogin)
+        {
+            <div class="validation-summary">Invalid User ID or Password.</div>
+        }
+
+        <form method="post" action="/api/auth/login" class="master-form">
+            <div class="field-block">
+                <label class="field-label" for="userId">User ID</label>
+                <input id="userId" name="userId" class="field-input" autocomplete="username" required />
+            </div>
+
+            <div class="field-block">
+                <label class="field-label" for="password">Password</label>
+                <input id="password" name="password" class="field-input" type="password" autocomplete="current-password" required />
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn-primary-action">Login</button>
+            </div>
+        </form>
+    </div>
+</section>
+
+@code {
+    [Inject]
+    private NavigationManager NavigationManager { get; set; } = default!;
+
+    private bool HasInvalidLogin =>
+        NavigationManager.ToAbsoluteUri(NavigationManager.Uri).Query.Contains("error=invalid", StringComparison.OrdinalIgnoreCase);
+}

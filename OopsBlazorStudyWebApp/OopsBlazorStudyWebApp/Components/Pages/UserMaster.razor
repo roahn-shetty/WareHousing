@@ -95,9 +95,8 @@
             }
             else
             {
-                <EditForm Model="@updateModel" class="master-form">
+                <EditForm Model="@updateModel" OnSubmit="@HandleUpdateUserSubmitAsync" class="master-form" @key="updateModel.UserMasterId">
                     <DataAnnotationsValidator />
-                    <ValidationSummary class="validation-summary" />
                     <div class="form-grid">
                         <div class="field-block">
                             <label class="field-label" for="update-user-name">User Name</label>
@@ -109,11 +108,11 @@
                         </div>
                         <div class="field-block">
                             <label class="field-label" for="update-password">Password</label>
-                            <InputText id="update-password" class="field-input" type="password" autocomplete="new-password" @bind-Value="updateModel.Password" />
+                            <input id="update-password" class="field-input field-input-readonly" type="password" value="********" disabled />
                         </div>
                         <div class="field-block">
                             <label class="field-label" for="update-confirm-password">Confirm Password</label>
-                            <InputText id="update-confirm-password" class="field-input" type="password" autocomplete="new-password" @bind-Value="updateModel.ConfirmPassword" />
+                            <input id="update-confirm-password" class="field-input field-input-readonly" type="password" value="********" disabled />
                         </div>
                         <div class="field-block">
                             <label class="field-label" for="update-email">Email Address</label>
@@ -141,10 +140,20 @@
                         </div>
                     </div>
 
-                    <div class="form-actions">
-                        <button type="button" class="btn-primary-action" @onclick="UpdateUserAsync" disabled="@isBusy || updateModel.UserMasterId <= 0">Update User</button>
+                    <div class="form-actions" @onmousedown="TraceUpdateButtonArea">
+                        <button type="submit" class="btn-primary-action" @onclick="TraceUpdateButtonClick" aria-disabled="@IsUpdateBlocked">
+                            Update User
+                        </button>
+                        <span class="update-diagnostic">
+                            Selected ID: @updateModel.UserMasterId | Busy: @isBusy | Blocked: @IsUpdateBlocked | Area: @updateButtonAreaCount | Clicks: @updateClickCount | Build: @PageBuildMarker
+                        </span>
                     </div>
                 </EditForm>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(lastUpdateClickMessage))
+            {
+                <p class="form-status">@lastUpdateClickMessage</p>
             }
 
             @if (!string.IsNullOrWhiteSpace(statusMessage))
@@ -206,6 +215,11 @@
     private bool isBusy;
     private string statusMessage = string.Empty;
     private string errorMessage = string.Empty;
+    private string lastUpdateClickMessage = string.Empty;
+    private int updateClickCount;
+    private int updateButtonAreaCount;
+    private const string PageBuildMarker = "UserMaster-UpdateDebug-20260912-02";
+    private bool IsUpdateBlocked => isBusy || updateModel.UserMasterId <= 0;
 
     public UserMaster()
     {
@@ -259,25 +273,53 @@
         });
     }
 
+    private async Task HandleUpdateUserSubmitAsync()
+    {
+        lastUpdateClickMessage = $"Update submit received at {DateTime.Now:HH:mm:ss}. Count: {updateClickCount}. Busy: {isBusy}. Selected ID: {updateModel.UserMasterId}.";
+        await UpdateUserAsync();
+    }
+
+    private void TraceUpdateButtonArea()
+    {
+        updateButtonAreaCount++;
+        lastUpdateClickMessage = $"Update button area touched at {DateTime.Now:HH:mm:ss}. Area count: {updateButtonAreaCount}. Busy: {isBusy}. Selected ID: {updateModel.UserMasterId}.";
+    }
+
+    private void TraceUpdateButtonClick()
+    {
+        updateClickCount++;
+        lastUpdateClickMessage = $"Update button clicked at {DateTime.Now:HH:mm:ss}. Click count: {updateClickCount}. Busy: {isBusy}. Selected ID: {updateModel.UserMasterId}.";
+    }
+
     private async Task UpdateUserAsync()
     {
+        if (isBusy)
+        {
+            errorMessage = "Update request is blocked because another operation is still running.";
+            return;
+        }
+
         if (updateModel.UserMasterId <= 0)
         {
             errorMessage = "Select a user first.";
             return;
         }
 
+        updateModel.Password = string.Empty;
+        updateModel.ConfirmPassword = string.Empty;
+
         var validationResults = new List<ValidationResult>();
         var validationContext = new ValidationContext(updateModel);
         if (!Validator.TryValidateObject(updateModel, validationContext, validationResults, true))
         {
             errorMessage = string.Join(" ", validationResults.Select(result => result.ErrorMessage).Where(message => !string.IsNullOrWhiteSpace(message)));
+            statusMessage = string.Empty;
             return;
         }
 
         await SaveAsync($"api/usermaster/{updateModel.UserMasterId}", updateModel.ToRequest(), async _ =>
         {
-            statusMessage = "User updated successfully.";
+            statusMessage = $"User updated successfully at {DateTime.Now:HH:mm:ss}. Rights sent: {updateModel.SelectedRoleIds.Count}.";
             await LoadDataAsync();
             await SelectUserAsync(updateModel.UserMasterId);
         }, isPut: true);
@@ -433,8 +475,8 @@
                 UserMasterId = detail.UserMasterId,
                 UserName = detail.UserName,
                 UserId = detail.UserId,
-                Password = detail.Password,
-                ConfirmPassword = detail.Password,
+                Password = string.Empty,
+                ConfirmPassword = string.Empty,
                 EmailAddress = detail.EmailAddress,
                 MobileNo = detail.MobileNo,
                 Remark = detail.Remark,
