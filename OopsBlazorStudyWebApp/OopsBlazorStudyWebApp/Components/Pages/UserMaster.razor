@@ -70,16 +70,37 @@
                             <InputText id="create-mobile" class="field-input" @bind-Value="createModel.MobileNo" />
                         </div>
                         <div class="field-block field-block-full">
-                            <label class="field-label">Select Rights</label>
-                            <div class="selection-grid">
-                                @foreach (var role in roles)
-                                {
-                                    <label class="selection-chip">
-                                        <input type="checkbox" checked="@createModel.SelectedRoleIds.Contains(role.RoleId)" @onchange="@(args => ToggleRole(createModel, role.RoleId, args))" />
-                                        <span>@role.RoleName (@role.RoleCode)</span>
-                                    </label>
-                                }
+                            <label class="field-label" for="create-role-rights">Select Rights</label>
+                            <div class="menu-rights-picker">
+                                <select id="create-role-rights" class="field-input" value="@selectedCreateRoleId" @onchange="@(args => AddRoleFromDropdown(createModel, args))" disabled="@(!roles.Any())">
+                                    <option value="0">Select role from Role Master</option>
+                                    @foreach (var role in AvailableRoles(createModel))
+                                    {
+                                        <option value="@role.RoleId">@GetRoleLabel(role)</option>
+                                    }
+                                </select>
+                                <button type="button" class="btn-secondary-action" @onclick="() => ClearRoles(createModel)" disabled="@(createModel.SelectedRoleIds.Count == 0)">Clear Rights</button>
                             </div>
+
+                            @if (!roles.Any())
+                            {
+                                <p class="empty-state">No active roles found in Role Master.</p>
+                            }
+                            else if (createModel.SelectedRoleIds.Count == 0)
+                            {
+                                <p class="empty-state">Select one or more roles from the dropdown.</p>
+                            }
+                            else
+                            {
+                                <div class="chip-list selected-rights-list">
+                                    @foreach (var roleId in createModel.SelectedRoleIds)
+                                    {
+                                        <button type="button" class="chip chip-action" @onclick="() => RemoveRole(createModel, roleId)">
+                                            @GetRoleLabel(roleId) <span aria-hidden="true">x</span>
+                                        </button>
+                                    }
+                                </div>
+                            }
                         </div>
                         <div class="field-block field-block-full">
                             <label class="field-label" for="create-remark">Remark</label>
@@ -123,16 +144,37 @@
                             <InputText id="update-mobile" class="field-input" @bind-Value="updateModel.MobileNo" />
                         </div>
                         <div class="field-block field-block-full">
-                            <label class="field-label">Select Rights</label>
-                            <div class="selection-grid">
-                                @foreach (var role in roles)
-                                {
-                                    <label class="selection-chip">
-                                        <input type="checkbox" checked="@updateModel.SelectedRoleIds.Contains(role.RoleId)" @onchange="@(args => ToggleRole(updateModel, role.RoleId, args))" />
-                                        <span>@role.RoleName (@role.RoleCode)</span>
-                                    </label>
-                                }
+                            <label class="field-label" for="update-role-rights">Select Rights</label>
+                            <div class="menu-rights-picker">
+                                <select id="update-role-rights" class="field-input" value="@selectedUpdateRoleId" @onchange="@(args => AddRoleFromDropdown(updateModel, args))" disabled="@(!roles.Any())">
+                                    <option value="0">Select role from Role Master</option>
+                                    @foreach (var role in AvailableRoles(updateModel))
+                                    {
+                                        <option value="@role.RoleId">@GetRoleLabel(role)</option>
+                                    }
+                                </select>
+                                <button type="button" class="btn-secondary-action" @onclick="() => ClearRoles(updateModel)" disabled="@(updateModel.SelectedRoleIds.Count == 0)">Clear Rights</button>
                             </div>
+
+                            @if (!roles.Any())
+                            {
+                                <p class="empty-state">No active roles found in Role Master.</p>
+                            }
+                            else if (updateModel.SelectedRoleIds.Count == 0)
+                            {
+                                <p class="empty-state">Select one or more roles from the dropdown.</p>
+                            }
+                            else
+                            {
+                                <div class="chip-list selected-rights-list">
+                                    @foreach (var roleId in updateModel.SelectedRoleIds)
+                                    {
+                                        <button type="button" class="chip chip-action" @onclick="() => RemoveRole(updateModel, roleId)">
+                                            @GetRoleLabel(roleId) <span aria-hidden="true">x</span>
+                                        </button>
+                                    }
+                                </div>
+                            }
                         </div>
                         <div class="field-block field-block-full">
                             <label class="field-label" for="update-remark">Remark</label>
@@ -216,6 +258,8 @@
     private string statusMessage = string.Empty;
     private string errorMessage = string.Empty;
     private string lastUpdateClickMessage = string.Empty;
+    private int selectedCreateRoleId;
+    private int selectedUpdateRoleId;
     private int updateClickCount;
     private int updateButtonAreaCount;
     private const string PageBuildMarker = "UserMaster-UpdateDebug-20260912-02";
@@ -389,37 +433,82 @@
         }
     }
 
-    private void ToggleRole(UserMasterFormModel model, int roleId, ChangeEventArgs args)
-    {
-        var isChecked = args.Value switch
-        {
-            bool boolValue => boolValue,
-            string stringValue when bool.TryParse(stringValue, out var parsedValue) => parsedValue,
-            _ => false
-        };
+    private IEnumerable<RoleLookupDto> AvailableRoles(UserMasterFormModel model) =>
+        roles.Where(role => !model.SelectedRoleIds.Contains(role.RoleId));
 
-        if (isChecked)
+    private void AddRoleFromDropdown(UserMasterFormModel model, ChangeEventArgs args)
+    {
+        var selectedValue = args.Value?.ToString();
+        if (!int.TryParse(selectedValue, out var roleId) || roleId <= 0)
         {
-            if (!model.SelectedRoleIds.Contains(roleId))
-            {
-                model.SelectedRoleIds.Add(roleId);
-            }
+            ResetSelectedRoleDropdown(model);
+            return;
         }
-        else
+
+        if (!model.SelectedRoleIds.Contains(roleId) && roles.Any(role => role.RoleId == roleId))
         {
-            model.SelectedRoleIds.Remove(roleId);
+            model.SelectedRoleIds.Add(roleId);
         }
+
+        ResetSelectedRoleDropdown(model);
+        if (ReferenceEquals(model, updateModel))
+        {
+            RefreshSelectedRoleNames();
+        }
+    }
+
+    private void RemoveRole(UserMasterFormModel model, int roleId)
+    {
+        model.SelectedRoleIds.Remove(roleId);
+        ResetSelectedRoleDropdown(model);
 
         if (ReferenceEquals(model, updateModel))
         {
-            selectedRoleNames.Clear();
-            selectedRoleNames.AddRange(roles.Where(r => model.SelectedRoleIds.Contains(r.RoleId)).Select(r => r.RoleName));
+            RefreshSelectedRoleNames();
         }
     }
+
+    private void ClearRoles(UserMasterFormModel model)
+    {
+        model.SelectedRoleIds.Clear();
+        ResetSelectedRoleDropdown(model);
+
+        if (ReferenceEquals(model, updateModel))
+        {
+            RefreshSelectedRoleNames();
+        }
+    }
+
+    private void RefreshSelectedRoleNames()
+    {
+        selectedRoleNames.Clear();
+        selectedRoleNames.AddRange(roles.Where(r => updateModel.SelectedRoleIds.Contains(r.RoleId)).Select(r => r.RoleName));
+    }
+
+    private void ResetSelectedRoleDropdown(UserMasterFormModel model)
+    {
+        if (ReferenceEquals(model, updateModel))
+        {
+            selectedUpdateRoleId = 0;
+        }
+        else
+        {
+            selectedCreateRoleId = 0;
+        }
+    }
+
+    private string GetRoleLabel(int roleId)
+    {
+        var role = roles.FirstOrDefault(item => item.RoleId == roleId);
+        return role is null ? $"Role #{roleId}" : GetRoleLabel(role);
+    }
+
+    private static string GetRoleLabel(RoleLookupDto role) => $"{role.RoleName} ({role.RoleCode})";
 
     private void ResetCreateForm()
     {
         createModel = new UserMasterFormModel();
+        selectedCreateRoleId = 0;
     }
 
     private async Task<string> ReadErrorAsync(HttpResponseMessage response)

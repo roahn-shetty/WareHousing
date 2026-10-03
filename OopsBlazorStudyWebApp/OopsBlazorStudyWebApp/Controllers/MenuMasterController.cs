@@ -35,6 +35,28 @@ public sealed class MenuMasterController : ControllerBase
         return CreatedAtAction(nameof(GetMenus), new { id }, new { id });
     }
 
+    [HttpPut("{id:int}")]
+    public async Task<ActionResult> UpdateStatus(int id, [FromBody] MenuMasterUpdateRequest request, CancellationToken cancellationToken)
+    {
+        if (id <= 0)
+        {
+            return BadRequest("Menu Id is required.");
+        }
+
+        if (!ModelState.IsValid)
+        {
+            return ValidationProblem(ModelState);
+        }
+
+        var updated = await _repository.UpdateMenuStatusAsync(id, request, GetCreatedBy(), DateTime.Now, cancellationToken);
+        if (!updated)
+        {
+            return NotFound($"Menu entry with Id {id} was not found.");
+        }
+
+        return NoContent();
+    }
+
     private string GetCreatedBy()
     {
         if (User.Identity?.IsAuthenticated == true && !string.IsNullOrWhiteSpace(User.Identity.Name))

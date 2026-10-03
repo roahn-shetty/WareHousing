@@ -64,7 +64,6 @@ public sealed class SqlUserMasterRepository : IUserMasterRepository
         {
             users.Add(ReadUserListItem(reader));
         }
-
         return users;
     }
 

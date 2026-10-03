@@ -31,7 +31,7 @@ public sealed class AuthController : ControllerBase
             new(ClaimTypes.NameIdentifier, user.UserMasterId.ToString(System.Globalization.CultureInfo.InvariantCulture)),
             new(ClaimTypes.Name, user.UserId),
             new("DisplayName", user.UserName),
-            new("LoginAt", DateTime.Now.ToString("O", System.Globalization.CultureInfo.InvariantCulture))
+            new("LoginAt", DateTime.Now.ToString("O", System.Globalization.CultureInfo.InvariantCulture)),
         };
 
         var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);

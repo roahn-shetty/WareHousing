@@ -1,4 +1,11 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
+@rendermode InteractiveServer
+@implements IDisposable
+
+@inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IMenuMasterRepository MenuMasterRepository
+
+<div class="top-row ps-3 navbar navbar-dark">
     <div class="brand-shell">
         <div class="brand-mark">WM</div>
         <div class="brand-copy">
@@ -12,13 +19,9 @@
 
 <div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
     <nav class="nav-shell">
-        <div class="nav-section">
-            <p class="nav-section-title">Control Tower</p>
-        </div>
-
         <div class="nav-item">
             <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="nav-marker">DB</span>
+                <span class="nav-marker">📊</span>
                 <span class="nav-copy">
                     <strong>Dashboard</strong>
                     <small>Graphs and warehouse overview</small>
@@ -26,49 +29,251 @@
             </NavLink>
         </div>
 
-        <div class="nav-section">
-            <p class="nav-section-title">Master Setup</p>
-        </div>
+        @if (ShouldShowMasterGroup)
+        {
+            <div class="nav-group @(activeGroup == "master" ? "expanded" : string.Empty)">
+                <button type="button" class="nav-group-header" @onclick="@(() => SelectGroup("master"))" aria-expanded="@(activeGroup == "master")">
+                    <span class="nav-group-icon">🧩</span>
+                    <span>Master</span>
+                    <span class="nav-group-arrow">▾</span>
+                </button>
 
-        <div class="nav-item">
-            <NavLink class="nav-link" href="user-master">
-                <span class="nav-marker">UM</span>
-                <span class="nav-copy">
-                    <strong>User Master</strong>
-                    <small>Create and update users</small>
-                </span>
-            </NavLink>
-        </div>
+                @if (activeGroup == "master")
+                {
+                    <div class="nav-group-links">
+                        @if (masterLinks.Count == 0)
+                        {
+                            <div class="nav-empty-state">@menuLoadMessage</div>
+                        }
+                        else
+                        {
+                            @foreach (var link in masterLinks)
+                            {
+                                @RenderNavigationLink(link)
+                            }
+                        }
+                    </div>
+                }
+            </div>
+        }
 
-        <div class="nav-item">
-            <NavLink class="nav-link" href="role-master">
-                <span class="nav-marker">RM</span>
-                <span class="nav-copy">
-                    <strong>Role Master</strong>
-                    <small>Access groups and permissions</small>
-                </span>
-            </NavLink>
-        </div>
+        @if (storeLinks.Count > 0)
+        {
+            <div class="nav-group @(activeGroup == "store" ? "expanded" : string.Empty)">
+                <button type="button" class="nav-group-header" @onclick="@(() => SelectGroup("store"))" aria-expanded="@(activeGroup == "store")">
+                    <span class="nav-group-icon">📦</span>
+                    <span>Store</span>
+                    <span class="nav-group-arrow">▾</span>
+                </button>
 
-        <div class="nav-item">
-            <NavLink class="nav-link" href="printer-master">
-                <span class="nav-marker">PM</span>
-                <span class="nav-copy">
-                    <strong>Printer Master</strong>
-                    <small>Printer endpoints and status</small>
-                </span>
-            </NavLink>
-        </div>
+                @if (activeGroup == "store")
+                {
+                    <div class="nav-group-links">
+                        @foreach (var link in storeLinks)
+                        {
+                            @RenderNavigationLink(link)
+                        }
+                    </div>
+                }
+            </div>
+        }
 
-        <div class="nav-item">
-            <NavLink class="nav-link" href="menu-master">
-                <span class="nav-marker">MM</span>
-                <span class="nav-copy">
-                    <strong>Menu Master</strong>
-                    <small>Navigation and role mapping</small>
-                </span>
-            </NavLink>
-        </div>
+        @if (productionLinks.Count > 0)
+        {
+            <div class="nav-group @(activeGroup == "production" ? "expanded" : string.Empty)">
+                <button type="button" class="nav-group-header" @onclick="@(() => SelectGroup("production"))" aria-expanded="@(activeGroup == "production")">
+                    <span class="nav-group-icon">⚙️</span>
+                    <span>Production</span>
+                    <span class="nav-group-arrow">▾</span>
+                </button>
+
+                @if (activeGroup == "production")
+                {
+                    <div class="nav-group-links">
+                        @foreach (var link in productionLinks)
+                        {
+                            @RenderNavigationLink(link)
+                        }
+                    </div>
+                }
+            </div>
+        }
+
+        @if (dispatchLinks.Count > 0)
+        {
+            <div class="nav-group @(activeGroup == "dispatch" ? "expanded" : string.Empty)">
+                <button type="button" class="nav-group-header" @onclick="@(() => SelectGroup("dispatch"))" aria-expanded="@(activeGroup == "dispatch")">
+                    <span class="nav-group-icon">🚚</span>
+                    <span>Dispatch</span>
+                    <span class="nav-group-arrow">▾</span>
+                </button>
+
+                @if (activeGroup == "dispatch")
+                {
+                    <div class="nav-group-links">
+                        @foreach (var link in dispatchLinks)
+                        {
+                            @RenderNavigationLink(link)
+                        }
+                    </div>
+                }
+            </div>
+        }
     </nav>
 </div>
 
+@code {
+    private IReadOnlyList<MenuNavigationLink> masterLinks = Array.Empty<MenuNavigationLink>();
+    private IReadOnlyList<MenuNavigationLink> storeLinks = Array.Empty<MenuNavigationLink>();
+    private IReadOnlyList<MenuNavigationLink> productionLinks = Array.Empty<MenuNavigationLink>();
+    private IReadOnlyList<MenuNavigationLink> dispatchLinks = Array.Empty<MenuNavigationLink>();
+    private string menuLoadMessage = "Loading Menu Master records...";
+    private bool menuLoadFailed;
+    private bool menusLoaded;
+    private string activeGroup = "master";
+    private bool ShouldShowMasterGroup => !menusLoaded || masterLinks.Count > 0 || menuLoadFailed;
+
+    protected override void OnInitialized()
+    {
+        SetActiveGroupFromUri(NavigationManager.Uri);
+        NavigationManager.LocationChanged += HandleLocationChanged;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadNavigationLinksAsync();
+    }
+
+    private async Task LoadNavigationLinksAsync()
+    {
+        try
+        {
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var userMasterIdClaim = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (!int.TryParse(userMasterIdClaim, out var userMasterId) || userMasterId <= 0)
+            {
+                menuLoadMessage = "Login user was not found for menu permission loading.";
+                menuLoadFailed = true;
+                return;
+            }
+
+            var permittedMenus = await MenuMasterRepository.GetMenusForUserAsync(userMasterId);
+            masterLinks = MenuNavigationCatalog.GetActiveMasterLinks(permittedMenus);
+            storeLinks = MenuNavigationCatalog.GetActiveStoreLinks(permittedMenus);
+            productionLinks = MenuNavigationCatalog.GetActiveProductionLinks(permittedMenus);
+            dispatchLinks = MenuNavigationCatalog.GetActiveDispatchLinks(permittedMenus);
+            menuLoadMessage = string.Empty;
+            menuLoadFailed = false;
+        }
+        catch (Exception ex)
+        {
+            masterLinks = Array.Empty<MenuNavigationLink>();
+            storeLinks = Array.Empty<MenuNavigationLink>();
+            productionLinks = Array.Empty<MenuNavigationLink>();
+            dispatchLinks = Array.Empty<MenuNavigationLink>();
+            menuLoadMessage = $"Unable to load Menu Master records: {ex.Message}";
+            menuLoadFailed = true;
+        }
+        finally
+        {
+            menusLoaded = true;
+            EnsureActiveGroupIsVisible();
+        }
+    }
+
+    private void SelectGroup(string group)
+    {
+        activeGroup = group;
+    }
+
+    private void HandleLocationChanged(object? sender, LocationChangedEventArgs args)
+    {
+        SetActiveGroupFromUri(args.Location);
+        EnsureActiveGroupIsVisible();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void SetActiveGroupFromUri(string uri)
+    {
+        var relativePath = NavigationManager.ToBaseRelativePath(uri).Split('?', '#')[0].Trim('/').ToLowerInvariant();
+
+        activeGroup = relativePath switch
+        {
+            "" => "master",
+            "store-reports" => "store",
+            "production-reports" => "production",
+            "dispatch-reports" => "dispatch",
+            _ when MenuNavigationCatalog.IsKnownHref(relativePath) => "master",
+            _ => activeGroup
+        };
+    }
+
+    private void EnsureActiveGroupIsVisible()
+    {
+        if (!menusLoaded)
+        {
+            return;
+        }
+
+        var visibleGroups = new List<string>();
+        if (masterLinks.Count > 0 || menuLoadFailed)
+        {
+            visibleGroups.Add("master");
+        }
+
+        if (storeLinks.Count > 0)
+        {
+            visibleGroups.Add("store");
+        }
+
+        if (productionLinks.Count > 0)
+        {
+            visibleGroups.Add("production");
+        }
+
+        if (dispatchLinks.Count > 0)
+        {
+            visibleGroups.Add("dispatch");
+        }
+
+        if (visibleGroups.Count > 0 && !visibleGroups.Contains(activeGroup))
+        {
+            activeGroup = visibleGroups[0];
+        }
+    }
+
+    private RenderFragment RenderNavigationLink(MenuNavigationLink link) => builder =>
+    {
+        builder.OpenElement(0, "div");
+        builder.AddAttribute(1, "class", "nav-item nav-item-child");
+        builder.OpenComponent<NavLink>(2);
+        builder.AddAttribute(3, "class", "nav-link");
+        builder.AddAttribute(4, "href", link.Href);
+        builder.AddAttribute(5, "ChildContent", (RenderFragment)(childBuilder =>
+        {
+            childBuilder.OpenElement(6, "span");
+            childBuilder.AddAttribute(7, "class", "nav-marker");
+            childBuilder.AddContent(8, link.Icon);
+            childBuilder.CloseElement();
+            childBuilder.OpenElement(9, "span");
+            childBuilder.AddAttribute(10, "class", "nav-copy");
+            childBuilder.OpenElement(11, "strong");
+            childBuilder.AddContent(12, link.MenuName);
+            childBuilder.CloseElement();
+            childBuilder.OpenElement(13, "small");
+            childBuilder.AddContent(14, GetMenuReferenceText(link));
+            childBuilder.CloseElement();
+            childBuilder.CloseElement();
+        }));
+        builder.CloseComponent();
+        builder.CloseElement();
+    };
+
+    private static string GetMenuReferenceText(MenuNavigationLink link) =>
+        link.MenuId.HasValue ? $"Menu #{link.MenuId.Value} | {link.Note}" : link.Note;
+
+    public void Dispose()
+    {
+        NavigationManager.LocationChanged -= HandleLocationChanged;
+    }
+}

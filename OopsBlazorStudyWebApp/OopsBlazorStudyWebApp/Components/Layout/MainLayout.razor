@@ -1,6 +1,5 @@
 ﻿@inherits LayoutComponentBase
 
-@inject NavigationManager NavigationManager
 @inject AuthenticationStateProvider AuthenticationStateProvider
 
 <div class="page">
@@ -10,17 +9,10 @@
 
     <main class="workspace">
         <div class="top-row">
-            <div class="header-copy">
-                <p class="header-kicker">Warehouse Management System</p>
-                <div class="header-title-wrap">
-                    <h2>@GetCurrentTitle()</h2>
-                    <p>@GetCurrentSubtitle()</p>
-                </div>
-            </div>
             <div class="header-signals">
                 @if (isAuthenticated)
                 {
-                    <div class="signal-card">
+                    <div class="signal-card signal-card-login">
                         <span class="signal-label">Logged In</span>
                         <strong>@loggedInUser</strong>
                     </div>
@@ -29,7 +21,7 @@
                 {
                     <a class="btn-primary-action header-login-link" href="login">Login</a>
                 }
-                <div class="signal-card">
+                <div class="signal-card signal-card-online">
                     <span class="signal-label">Client Status</span>
                     <strong>Online</strong>
                 </div>
@@ -69,35 +61,6 @@
         loggedInUser = authState.User.Identity?.Name ?? "Guest";
     }
 
-    private string GetCurrentTitle()
-    {
-        var route = NavigationManager.ToBaseRelativePath(NavigationManager.Uri).Trim('/').ToLowerInvariant();
-
-        return route switch
-        {
-            "" => "Dashboard",
-            "user-master" => "User Master",
-            "role-master" => "Role Master",
-            "printer-master" => "Printer Master",
-            "menu-master" => "Menu Master",
-            _ => "Warehouse Workspace"
-        };
-    }
-
-    private string GetCurrentSubtitle()
-    {
-        var route = NavigationManager.ToBaseRelativePath(NavigationManager.Uri).Trim('/').ToLowerInvariant();
-
-        return route switch
-        {
-            "" => "WMS portal overview and master-module activity.",
-            "user-master" => "Create users, assign rights, and update access records.",
-            "role-master" => "Maintain warehouse roles and their menu permissions.",
-            "printer-master" => "Register printers and monitor network print endpoints.",
-            "menu-master" => "Review navigation structure and role-wise menu visibility.",
-            _ => "Operational workspace for client-facing warehouse controls."
-        };
-    }
 }
 
 <div id="blazor-error-ui" data-nosnippet>

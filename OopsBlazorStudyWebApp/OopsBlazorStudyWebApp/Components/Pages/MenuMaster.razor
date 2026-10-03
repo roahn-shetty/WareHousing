@@ -6,7 +6,7 @@
 <section class="master-shell">
     <div class="master-header">
         <div>
-            <p class="section-kicker">Navigation Control</p>
+          @*    <p class="section-kicker">Navigation Control</p> *@
             <h1 class="page-title">Menu Master</h1>
             <p class="page-subtitle">
                 Create menu names and control active status. Audit details are captured by the API and SQL procedure.
@@ -19,45 +19,104 @@
         </div>
     </div>
 
+    <div class="master-tabs">
+        <button type="button" class="master-tab @(activeTab == MenuTab.Create ? "active" : string.Empty)" @onclick="() => SetActiveTab(MenuTab.Create)">Create Menu</button>
+        <button type="button" class="master-tab @(activeTab == MenuTab.Update ? "active" : string.Empty)" @onclick="() => SetActiveTab(MenuTab.Update)">Update Menu</button>
+    </div>
+
     @if (!string.IsNullOrWhiteSpace(errorMessage))
     {
         <div class="validation-summary">@errorMessage</div>
     }
 
-    <div class="master-content-grid">
+    <div class="master-content-grid @(activeTab == MenuTab.Update ? "update-grid" : string.Empty)">
         <section class="panel panel-large">
             <div class="panel-heading">
                 <div>
-                    <h2 class="panel-title">Create menu entry</h2>
-                    <p class="panel-subtitle">Created By and Created On are generated automatically during save.</p>
+                    <h2 class="panel-title">@(activeTab == MenuTab.Create ? "Create menu entry" : "Update selected menu")</h2>
+                    <p class="panel-subtitle">
+                        @(activeTab == MenuTab.Create
+                            ? "Created By and Created On are generated automatically during save."
+                            : "Only Activate / DeActivate status is editable. Menu Id and MenuName stay locked.")
+                    </p>
                 </div>
-                <span class="pill pill-teal">TblMnu</span>
+                <span class="pill @(activeTab == MenuTab.Create ? "pill-teal" : "pill-amber")">TblMnu</span>
             </div>
 
-            <EditForm Model="@menuModel" OnValidSubmit="@CreateMenuAsync" class="master-form">
-                <DataAnnotationsValidator />
-                <ValidationSummary class="validation-summary" />
+            @if (activeTab == MenuTab.Create)
+            {
+                <EditForm Model="@createModel" OnValidSubmit="@CreateMenuAsync" class="master-form">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary class="validation-summary" />
 
-                <div class="form-grid">
-                    <div class="field-block">
-                        <label class="field-label" for="menu-name">MenuName</label>
-                        <InputText id="menu-name" class="field-input" @bind-Value="menuModel.MenuName" />
+                    <div class="form-grid">
+                        <div class="field-block">
+                            <label class="field-label" for="create-menu-name">MenuName</label>
+                            <InputText id="create-menu-name" class="field-input" @bind-Value="createModel.MenuName" />
+                        </div>
+
+                        <div class="field-block">
+                            <label class="field-label" for="create-menu-status">Status</label>
+                            <InputSelect id="create-menu-status" class="field-input" @bind-Value="createModel.Status">
+                                <option value="Activate">Activate</option>
+                                <option value="DeActivate">DeActivate</option>
+                            </InputSelect>
+                        </div>
                     </div>
 
-                    <div class="field-block">
-                        <label class="field-label" for="menu-status">Status</label>
-                        <InputSelect id="menu-status" class="field-input" @bind-Value="menuModel.Status">
-                            <option value="Activate">Activate</option>
-                            <option value="DeActivate">DeActivate</option>
-                        </InputSelect>
+                    <div class="form-actions">
+                        <button type="submit" class="btn-primary-action" disabled="@isBusy">Save Menu</button>
+                        <button type="button" class="btn-secondary-action" @onclick="ResetCreateForm" disabled="@isBusy">Clear</button>
                     </div>
-                </div>
+                </EditForm>
+            }
+            else
+            {
+                <EditForm Model="@updateModel" OnSubmit="@HandleUpdateMenuSubmitAsync" class="master-form" @key="updateModel.Id">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary class="validation-summary" />
 
-                <div class="form-actions">
-                    <button type="submit" class="btn-primary-action" disabled="@isBusy">Save Menu</button>
-                    <button type="button" class="btn-secondary-action" @onclick="ResetForm" disabled="@isBusy">Clear</button>
-                </div>
-            </EditForm>
+                    <div class="form-grid">
+                        <div class="field-block">
+                            <label class="field-label" for="update-menu-id">Id</label>
+                            <InputNumber id="update-menu-id" class="field-input field-input-readonly" @bind-Value="updateModel.Id" readonly />
+                        </div>
+
+                        <div class="field-block">
+                            <label class="field-label" for="update-menu-name">MenuName</label>
+                            <InputText id="update-menu-name" class="field-input field-input-readonly" @bind-Value="updateModel.MenuName" readonly />
+                        </div>
+
+                        <div class="field-block">
+                            <label class="field-label" for="update-menu-status">Status</label>
+                            <select id="update-menu-status" class="field-input" value="@updateModel.Status" @onchange="HandleUpdateStatusChanged">
+                                <option value="Activate">Activate</option>
+                                <option value="DeActivate">DeActivate</option>
+                            </select>
+                        </div>
+
+                        <div class="field-block">
+                            <label class="field-label" for="update-menu-created-by">Created By</label>
+                            <InputText id="update-menu-created-by" class="field-input field-input-readonly" @bind-Value="updateModel.CreatedBy" readonly />
+                        </div>
+
+                        <div class="field-block">
+                            <label class="field-label" for="update-menu-created-on">Created On</label>
+                            <InputText id="update-menu-created-on" class="field-input field-input-readonly" @bind-Value="updateModel.CreatedOnText" readonly />
+                        </div>
+                    </div>
+
+                    <div class="form-actions" @onmousedown="TraceUpdateButtonArea">
+                        <button type="button" class="btn-primary-action" @onclick="HandleUpdateButtonClickAsync" aria-disabled="@IsUpdateBlocked">Update Menu</button>
+                        <span class="update-diagnostic">Selected ID: @updateModel.Id | Status: @updateModel.Status | Area: @updateButtonAreaCount | Clicks: @updateClickCount</span>
+                    </div>
+                </EditForm>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(lastUpdateTraceMessage))
+            {
+                <p class="form-status">@lastUpdateTraceMessage</p>
+            }
 
             @if (!string.IsNullOrWhiteSpace(statusMessage))
             {
@@ -66,23 +125,53 @@
         </section>
 
         <aside class="panel side-panel">
-            <div class="panel-heading">
-                <div>
-                    <h2 class="panel-title">Menu summary</h2>
-                    <p class="panel-subtitle">Current status split from SQL Server.</p>
+            @if (activeTab == MenuTab.Update)
+            {
+                <div class="panel-heading">
+                    <div>
+                        <h2 class="panel-title">Existing menus</h2>
+                        <p class="panel-subtitle">Select a record to switch the form into update mode.</p>
+                    </div>
                 </div>
-            </div>
 
-            <div class="summary-stack">
-                <div class="summary-card">
-                    <span class="summary-label">Active menus</span>
-                    <strong class="summary-number">@menus.Count(menu => menu.Status == "Activate")</strong>
+                <div class="record-list">
+                    @if (menus.Count == 0)
+                    {
+                        <p class="empty-state">No menu entries found.</p>
+                    }
+                    else
+                    {
+                        @foreach (var menu in menus)
+                        {
+                            <button type="button" class="record-tile @(selectedMenuId == menu.Id ? "selected" : string.Empty)" @onclick="() => SelectMenu(menu)" disabled="@isBusy">
+                                <strong>@menu.MenuName</strong>
+                                <span>@menu.Status</span>
+                                <small>Created by @menu.CreatedBy on @FormatDate(menu.CreatedOn)</small>
+                            </button>
+                        }
+                    }
                 </div>
-                <div class="summary-card">
-                    <span class="summary-label">Deactivated menus</span>
-                    <strong class="summary-number">@menus.Count(menu => menu.Status == "DeActivate")</strong>
+            }
+            else
+            {
+                <div class="panel-heading">
+                    <div>
+                        <h2 class="panel-title">Menu summary</h2>
+                        <p class="panel-subtitle">Current status split from SQL Server.</p>
+                    </div>
                 </div>
-            </div>
+
+                <div class="summary-stack">
+                    <div class="summary-card">
+                        <span class="summary-label">Active menus</span>
+                        <strong class="summary-number">@menus.Count(menu => menu.Status == "Activate")</strong>
+                    </div>
+                    <div class="summary-card">
+                        <span class="summary-label">Deactivated menus</span>
+                        <strong class="summary-number">@menus.Count(menu => menu.Status == "DeActivate")</strong>
+                    </div>
+                </div>
+            }
         </aside>
     </div>
 
@@ -121,7 +210,7 @@
                                 <td>@menu.MenuName</td>
                                 <td><span class="chip">@menu.Status</span></td>
                                 <td>@menu.CreatedBy</td>
-                                <td>@menu.CreatedOn.ToString("dd-MMM-yyyy HH:mm")</td>
+                                <td>@FormatDate(menu.CreatedOn)</td>
                             </tr>
                         }
                     }
@@ -134,12 +223,19 @@
 @code {
     private readonly HttpClient apiClient = new();
     private List<MenuMasterListDto> menus = new();
-    private MenuMasterFormModel menuModel = new();
+    private MenuMasterCreateFormModel createModel = new();
+    private MenuMasterUpdateFormModel updateModel = new();
+    private MenuTab activeTab = MenuTab.Create;
+    private int selectedMenuId;
     private bool isBusy;
     private string statusMessage = string.Empty;
     private string errorMessage = string.Empty;
+    private int updateClickCount;
+    private int updateButtonAreaCount;
+    private string lastUpdateTraceMessage = string.Empty;
     private string currentUserId = "System";
     private string currentLoginAt = DateTime.Now.ToString("O", System.Globalization.CultureInfo.InvariantCulture);
+    private bool IsUpdateBlocked => isBusy || updateModel.Id <= 0;
 
     [Inject]
     private NavigationManager NavigationManager { get; set; } = default!;
@@ -154,9 +250,14 @@
 
     protected override async Task OnInitializedAsync()
     {
-        ResetForm();
+        ResetCreateForm();
         await SetCurrentUserAsync();
         await LoadMenusAsync();
+
+        if (menus.Count > 0)
+        {
+            SelectMenu(menus[0], switchTab: false, clearMessages: false);
+        }
     }
 
     private async Task LoadMenusAsync()
@@ -181,7 +282,7 @@
         {
             using var request = new HttpRequestMessage(HttpMethod.Post, "api/menumaster")
             {
-                Content = JsonContent.Create(menuModel.ToRequest())
+                Content = JsonContent.Create(createModel.ToRequest())
             };
             request.Headers.Add("X-Created-By", currentUserId);
             request.Headers.Add("X-Login-At", currentLoginAt);
@@ -194,8 +295,13 @@
             }
 
             statusMessage = "Menu entry saved successfully.";
-            ResetForm();
+            ResetCreateForm();
             await LoadMenusAsync();
+
+            if (menus.Count > 0)
+            {
+                SelectMenu(menus[0], switchTab: false, clearMessages: false);
+            }
         }
         catch (Exception ex)
         {
@@ -207,9 +313,138 @@
         }
     }
 
-    private void ResetForm()
+    private async Task UpdateMenuAsync()
     {
-        menuModel = new MenuMasterFormModel();
+        if (isBusy)
+        {
+            errorMessage = "Update request is blocked because another operation is still running.";
+            return;
+        }
+
+        if (updateModel.Id <= 0)
+        {
+            errorMessage = "Select a menu entry first.";
+            statusMessage = string.Empty;
+            return;
+        }
+
+        var validationResults = new List<ValidationResult>();
+        var validationContext = new ValidationContext(updateModel);
+        if (!Validator.TryValidateObject(updateModel, validationContext, validationResults, true))
+        {
+            errorMessage = string.Join(" ", validationResults.Select(result => result.ErrorMessage).Where(message => !string.IsNullOrWhiteSpace(message)));
+            statusMessage = string.Empty;
+            return;
+        }
+
+        isBusy = true;
+        statusMessage = string.Empty;
+        errorMessage = string.Empty;
+
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Put, $"api/menumaster/{updateModel.Id}")
+            {
+                Content = JsonContent.Create(updateModel.ToRequest())
+            };
+            request.Headers.Add("X-Created-By", currentUserId);
+            request.Headers.Add("X-Login-At", currentLoginAt);
+
+            var response = await apiClient.SendAsync(request);
+            if (!response.IsSuccessStatusCode)
+            {
+                errorMessage = await ReadErrorAsync(response);
+                return;
+            }
+
+            var updatedId = updateModel.Id;
+            statusMessage = $"Menu status updated successfully to {updateModel.Status}.";
+            lastUpdateTraceMessage = $"API update completed at {DateTime.Now:HH:mm:ss}.";
+            await LoadMenusAsync();
+
+            var refreshedMenu = menus.FirstOrDefault(menu => menu.Id == updatedId);
+            if (refreshedMenu is not null)
+            {
+                SelectMenu(refreshedMenu, switchTab: false, clearMessages: false);
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private async Task HandleUpdateButtonClickAsync()
+    {
+        updateClickCount++;
+        lastUpdateTraceMessage = $"Update Menu clicked at {DateTime.Now:HH:mm:ss}. Selected ID: {updateModel.Id}. Status: {updateModel.Status}.";
+        await UpdateMenuAsync();
+    }
+
+    private async Task HandleUpdateMenuSubmitAsync(EditContext? editContext)
+    {
+        errorMessage = string.Empty;
+        statusMessage = string.Empty;
+
+        var validationResults = new List<ValidationResult>();
+        var validationContext = new ValidationContext(updateModel);
+        if (!Validator.TryValidateObject(updateModel, validationContext, validationResults, true))
+        {
+            errorMessage = string.Join(" ", validationResults.Select(result => result.ErrorMessage).Where(message => !string.IsNullOrWhiteSpace(message)));
+            return;
+        }
+
+        await UpdateMenuAsync();
+    }
+
+    private void TraceUpdateButtonArea()
+    {
+        updateButtonAreaCount++;
+        lastUpdateTraceMessage = $"Update action area touched at {DateTime.Now:HH:mm:ss}. Selected ID: {updateModel.Id}. Status: {updateModel.Status}.";
+    }
+
+    private void HandleUpdateStatusChanged(ChangeEventArgs args)
+    {
+        updateModel.Status = args.Value?.ToString() ?? "Activate";
+        lastUpdateTraceMessage = $"Status changed to {updateModel.Status} at {DateTime.Now:HH:mm:ss}.";
+    }
+
+    private void SetActiveTab(MenuTab tab)
+    {
+        activeTab = tab;
+        statusMessage = string.Empty;
+        errorMessage = string.Empty;
+
+        if (tab == MenuTab.Update && updateModel.Id <= 0 && menus.Count > 0)
+        {
+            SelectMenu(menus[0], switchTab: false, clearMessages: false);
+        }
+    }
+
+    private void SelectMenu(MenuMasterListDto menu, bool switchTab = true, bool clearMessages = true)
+    {
+        selectedMenuId = menu.Id;
+        updateModel = MenuMasterUpdateFormModel.FromList(menu);
+
+        if (switchTab)
+        {
+            activeTab = MenuTab.Update;
+        }
+
+        if (clearMessages)
+        {
+            statusMessage = string.Empty;
+            errorMessage = string.Empty;
+        }
+    }
+
+    private void ResetCreateForm()
+    {
+        createModel = new MenuMasterCreateFormModel();
     }
 
     private async Task SetCurrentUserAsync()
@@ -233,7 +468,15 @@
         return string.IsNullOrWhiteSpace(payload) ? $"Request failed with {(int)response.StatusCode}." : payload;
     }
 
-    private sealed class MenuMasterFormModel
+    private static string FormatDate(DateTime value) => value.ToString("dd-MMM-yyyy HH:mm");
+
+    private enum MenuTab
+    {
+        Create,
+        Update
+    }
+
+    private sealed class MenuMasterCreateFormModel
     {
         [Required]
         public string MenuName { get; set; } = string.Empty;
@@ -246,6 +489,36 @@
             {
                 MenuName = MenuName,
                 Status = Status
+            };
+    }
+
+    private sealed class MenuMasterUpdateFormModel
+    {
+        public int Id { get; set; }
+
+        public string MenuName { get; set; } = string.Empty;
+
+        [Required]
+        public string Status { get; set; } = "Activate";
+
+        public string CreatedBy { get; set; } = string.Empty;
+
+        public string CreatedOnText { get; set; } = string.Empty;
+
+        public MenuMasterUpdateRequest ToRequest() =>
+            new()
+            {
+                Status = Status
+            };
+
+        public static MenuMasterUpdateFormModel FromList(MenuMasterListDto menu) =>
+            new()
+            {
+                Id = menu.Id,
+                MenuName = menu.MenuName,
+                Status = menu.Status,
+                CreatedBy = menu.CreatedBy,
+                CreatedOnText = FormatDate(menu.CreatedOn)
             };
     }
 }

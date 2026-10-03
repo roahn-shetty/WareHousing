@@ -26,3 +26,18 @@ public sealed class MenuMasterSaveRequest : IValidatableObject
         }
     }
 }
+
+public sealed class MenuMasterUpdateRequest : IValidatableObject
+{
+    [Required]
+    public string Status { get; set; } = "Activate";
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        if (!string.Equals(Status, "Activate", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(Status, "DeActivate", StringComparison.OrdinalIgnoreCase))
+        {
+            yield return new ValidationResult("Status must be Activate or DeActivate.", new[] { nameof(Status) });
+        }
+    }
+}

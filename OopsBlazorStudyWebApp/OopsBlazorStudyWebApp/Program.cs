@@ -12,6 +12,7 @@ builder.Services.AddRazorComponents()
     .Services.AddControllers();
 builder.Services.AddScoped<IUserMasterRepository, SqlUserMasterRepository>();
 builder.Services.AddScoped<IMenuMasterRepository, SqlMenuMasterRepository>();
+builder.Services.AddScoped<IRoleMasterRepository, SqlRoleMasterRepository>();
 builder.Services.AddScoped<IAuthRepository, SqlAuthRepository>();
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
