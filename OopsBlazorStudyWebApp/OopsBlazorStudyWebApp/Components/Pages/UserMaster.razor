@@ -70,16 +70,37 @@
                             <InputText id="create-mobile" class="field-input" @bind-Value="createModel.MobileNo" />
                         </div>
                         <div class="field-block field-block-full">
-                            <label class="field-label">Select Rights</label>
-                            <div class="selection-grid">
-                                @foreach (var role in roles)
-                                {
-                                    <label class="selection-chip">
-                                        <input type="checkbox" checked="@createModel.SelectedRoleIds.Contains(role.RoleId)" @onchange="@(args => ToggleRole(createModel, role.RoleId, args))" />
-                                        <span>@role.RoleName (@role.RoleCode)</span>
-                                    </label>
-                                }
+                            <label class="field-label" for="create-role-rights">Select Rights</label>
+                            <div class="menu-rights-picker">
+                                <select id="create-role-rights" class="field-input" value="@selectedCreateRoleId" @onchange="@(args => AddRoleFromDropdown(createModel, args))" disabled="@(!roles.Any())">
+                                    <option value="0">Select role from Role Master</option>
+                                    @foreach (var role in AvailableRoles(createModel))
+                                    {
+                                        <option value="@role.RoleId">@GetRoleLabel(role)</option>
+                                    }
+                                </select>
+                                <button type="button" class="btn-secondary-action" @onclick="() => ClearRoles(createModel)" disabled="@(createModel.SelectedRoleIds.Count == 0)">Clear Rights</button>
                             </div>
+
+                            @if (!roles.Any())
+                            {
+                                <p class="empty-state">No active roles found in Role Master.</p>
+                            }
+                            else if (createModel.SelectedRoleIds.Count == 0)
+                            {
+                                <p class="empty-state">Select one or more roles from the dropdown.</p>
+                            }
+                            else
+                            {
+                                <div class="chip-list selected-rights-list">
+                                    @foreach (var roleId in createModel.SelectedRoleIds)
+                                    {
+                                        <button type="button" class="chip chip-action" @onclick="() => RemoveRole(createModel, roleId)">
+                                            @GetRoleLabel(roleId) <span aria-hidden="true">x</span>
+                                        </button>
+                                    }
+                                </div>
+                            }
                         </div>
                         <div class="field-block field-block-full">
                             <label class="field-label" for="create-remark">Remark</label>
@@ -95,9 +116,8 @@
             }
             else
             {
-                <EditForm Model="@updateModel" class="master-form">
+                <EditForm Model="@updateModel" OnSubmit="@HandleUpdateUserSubmitAsync" class="master-form" @key="updateModel.UserMasterId">
                     <DataAnnotationsValidator />
-                    <ValidationSummary class="validation-summary" />
                     <div class="form-grid">
                         <div class="field-block">
                             <label class="field-label" for="update-user-name">User Name</label>
@@ -109,11 +129,11 @@
                         </div>
                         <div class="field-block">
                             <label class="field-label" for="update-password">Password</label>
-                            <InputText id="update-password" class="field-input" type="password" autocomplete="new-password" @bind-Value="updateModel.Password" />
+                            <input id="update-password" class="field-input field-input-readonly" type="password" value="********" disabled />
                         </div>
                         <div class="field-block">
                             <label class="field-label" for="update-confirm-password">Confirm Password</label>
-                            <InputText id="update-confirm-password" class="field-input" type="password" autocomplete="new-password" @bind-Value="updateModel.ConfirmPassword" />
+                            <input id="update-confirm-password" class="field-input field-input-readonly" type="password" value="********" disabled />
                         </div>
                         <div class="field-block">
                             <label class="field-label" for="update-email">Email Address</label>
@@ -124,16 +144,37 @@
                             <InputText id="update-mobile" class="field-input" @bind-Value="updateModel.MobileNo" />
                         </div>
                         <div class="field-block field-block-full">
-                            <label class="field-label">Select Rights</label>
-                            <div class="selection-grid">
-                                @foreach (var role in roles)
-                                {
-                                    <label class="selection-chip">
-                                        <input type="checkbox" checked="@updateModel.SelectedRoleIds.Contains(role.RoleId)" @onchange="@(args => ToggleRole(updateModel, role.RoleId, args))" />
-                                        <span>@role.RoleName (@role.RoleCode)</span>
-                                    </label>
-                                }
+                            <label class="field-label" for="update-role-rights">Select Rights</label>
+                            <div class="menu-rights-picker">
+                                <select id="update-role-rights" class="field-input" value="@selectedUpdateRoleId" @onchange="@(args => AddRoleFromDropdown(updateModel, args))" disabled="@(!roles.Any())">
+                                    <option value="0">Select role from Role Master</option>
+                                    @foreach (var role in AvailableRoles(updateModel))
+                                    {
+                                        <option value="@role.RoleId">@GetRoleLabel(role)</option>
+                                    }
+                                </select>
+                                <button type="button" class="btn-secondary-action" @onclick="() => ClearRoles(updateModel)" disabled="@(updateModel.SelectedRoleIds.Count == 0)">Clear Rights</button>
                             </div>
+
+                            @if (!roles.Any())
+                            {
+                                <p class="empty-state">No active roles found in Role Master.</p>
+                            }
+                            else if (updateModel.SelectedRoleIds.Count == 0)
+                            {
+                                <p class="empty-state">Select one or more roles from the dropdown.</p>
+                            }
+                            else
+                            {
+                                <div class="chip-list selected-rights-list">
+                                    @foreach (var roleId in updateModel.SelectedRoleIds)
+                                    {
+                                        <button type="button" class="chip chip-action" @onclick="() => RemoveRole(updateModel, roleId)">
+                                            @GetRoleLabel(roleId) <span aria-hidden="true">x</span>
+                                        </button>
+                                    }
+                                </div>
+                            }
                         </div>
                         <div class="field-block field-block-full">
                             <label class="field-label" for="update-remark">Remark</label>
@@ -141,10 +182,20 @@
                         </div>
                     </div>
 
-                    <div class="form-actions">
-                        <button type="button" class="btn-primary-action" @onclick="UpdateUserAsync" disabled="@isBusy || updateModel.UserMasterId <= 0">Update User</button>
+                    <div class="form-actions" @onmousedown="TraceUpdateButtonArea">
+                        <button type="submit" class="btn-primary-action" @onclick="TraceUpdateButtonClick" aria-disabled="@IsUpdateBlocked">
+                            Update User
+                        </button>
+                        <span class="update-diagnostic">
+                            Selected ID: @updateModel.UserMasterId | Busy: @isBusy | Blocked: @IsUpdateBlocked | Area: @updateButtonAreaCount | Clicks: @updateClickCount | Build: @PageBuildMarker
+                        </span>
                     </div>
                 </EditForm>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(lastUpdateClickMessage))
+            {
+                <p class="form-status">@lastUpdateClickMessage</p>
             }
 
             @if (!string.IsNullOrWhiteSpace(statusMessage))
@@ -206,6 +257,13 @@
     private bool isBusy;
     private string statusMessage = string.Empty;
     private string errorMessage = string.Empty;
+    private string lastUpdateClickMessage = string.Empty;
+    private int selectedCreateRoleId;
+    private int selectedUpdateRoleId;
+    private int updateClickCount;
+    private int updateButtonAreaCount;
+    private const string PageBuildMarker = "UserMaster-UpdateDebug-20260912-02";
+    private bool IsUpdateBlocked => isBusy || updateModel.UserMasterId <= 0;
 
     public UserMaster()
     {
@@ -259,25 +317,53 @@
         });
     }
 
+    private async Task HandleUpdateUserSubmitAsync()
+    {
+        lastUpdateClickMessage = $"Update submit received at {DateTime.Now:HH:mm:ss}. Count: {updateClickCount}. Busy: {isBusy}. Selected ID: {updateModel.UserMasterId}.";
+        await UpdateUserAsync();
+    }
+
+    private void TraceUpdateButtonArea()
+    {
+        updateButtonAreaCount++;
+        lastUpdateClickMessage = $"Update button area touched at {DateTime.Now:HH:mm:ss}. Area count: {updateButtonAreaCount}. Busy: {isBusy}. Selected ID: {updateModel.UserMasterId}.";
+    }
+
+    private void TraceUpdateButtonClick()
+    {
+        updateClickCount++;
+        lastUpdateClickMessage = $"Update button clicked at {DateTime.Now:HH:mm:ss}. Click count: {updateClickCount}. Busy: {isBusy}. Selected ID: {updateModel.UserMasterId}.";
+    }
+
     private async Task UpdateUserAsync()
     {
+        if (isBusy)
+        {
+            errorMessage = "Update request is blocked because another operation is still running.";
+            return;
+        }
+
         if (updateModel.UserMasterId <= 0)
         {
             errorMessage = "Select a user first.";
             return;
         }
 
+        updateModel.Password = string.Empty;
+        updateModel.ConfirmPassword = string.Empty;
+
         var validationResults = new List<ValidationResult>();
         var validationContext = new ValidationContext(updateModel);
         if (!Validator.TryValidateObject(updateModel, validationContext, validationResults, true))
         {
             errorMessage = string.Join(" ", validationResults.Select(result => result.ErrorMessage).Where(message => !string.IsNullOrWhiteSpace(message)));
+            statusMessage = string.Empty;
             return;
         }
 
         await SaveAsync($"api/usermaster/{updateModel.UserMasterId}", updateModel.ToRequest(), async _ =>
         {
-            statusMessage = "User updated successfully.";
+            statusMessage = $"User updated successfully at {DateTime.Now:HH:mm:ss}. Rights sent: {updateModel.SelectedRoleIds.Count}.";
             await LoadDataAsync();
             await SelectUserAsync(updateModel.UserMasterId);
         }, isPut: true);
@@ -347,37 +433,82 @@
         }
     }
 
-    private void ToggleRole(UserMasterFormModel model, int roleId, ChangeEventArgs args)
-    {
-        var isChecked = args.Value switch
-        {
-            bool boolValue => boolValue,
-            string stringValue when bool.TryParse(stringValue, out var parsedValue) => parsedValue,
-            _ => false
-        };
+    private IEnumerable<RoleLookupDto> AvailableRoles(UserMasterFormModel model) =>
+        roles.Where(role => !model.SelectedRoleIds.Contains(role.RoleId));
 
-        if (isChecked)
+    private void AddRoleFromDropdown(UserMasterFormModel model, ChangeEventArgs args)
+    {
+        var selectedValue = args.Value?.ToString();
+        if (!int.TryParse(selectedValue, out var roleId) || roleId <= 0)
         {
-            if (!model.SelectedRoleIds.Contains(roleId))
-            {
-                model.SelectedRoleIds.Add(roleId);
-            }
+            ResetSelectedRoleDropdown(model);
+            return;
         }
-        else
+
+        if (!model.SelectedRoleIds.Contains(roleId) && roles.Any(role => role.RoleId == roleId))
         {
-            model.SelectedRoleIds.Remove(roleId);
+            model.SelectedRoleIds.Add(roleId);
         }
+
+        ResetSelectedRoleDropdown(model);
+        if (ReferenceEquals(model, updateModel))
+        {
+            RefreshSelectedRoleNames();
+        }
+    }
+
+    private void RemoveRole(UserMasterFormModel model, int roleId)
+    {
+        model.SelectedRoleIds.Remove(roleId);
+        ResetSelectedRoleDropdown(model);
 
         if (ReferenceEquals(model, updateModel))
         {
-            selectedRoleNames.Clear();
-            selectedRoleNames.AddRange(roles.Where(r => model.SelectedRoleIds.Contains(r.RoleId)).Select(r => r.RoleName));
+            RefreshSelectedRoleNames();
         }
     }
+
+    private void ClearRoles(UserMasterFormModel model)
+    {
+        model.SelectedRoleIds.Clear();
+        ResetSelectedRoleDropdown(model);
+
+        if (ReferenceEquals(model, updateModel))
+        {
+            RefreshSelectedRoleNames();
+        }
+    }
+
+    private void RefreshSelectedRoleNames()
+    {
+        selectedRoleNames.Clear();
+        selectedRoleNames.AddRange(roles.Where(r => updateModel.SelectedRoleIds.Contains(r.RoleId)).Select(r => r.RoleName));
+    }
+
+    private void ResetSelectedRoleDropdown(UserMasterFormModel model)
+    {
+        if (ReferenceEquals(model, updateModel))
+        {
+            selectedUpdateRoleId = 0;
+        }
+        else
+        {
+            selectedCreateRoleId = 0;
+        }
+    }
+
+    private string GetRoleLabel(int roleId)
+    {
+        var role = roles.FirstOrDefault(item => item.RoleId == roleId);
+        return role is null ? $"Role #{roleId}" : GetRoleLabel(role);
+    }
+
+    private static string GetRoleLabel(RoleLookupDto role) => $"{role.RoleName} ({role.RoleCode})";
 
     private void ResetCreateForm()
     {
         createModel = new UserMasterFormModel();
+        selectedCreateRoleId = 0;
     }
 
     private async Task<string> ReadErrorAsync(HttpResponseMessage response)
@@ -433,8 +564,8 @@
                 UserMasterId = detail.UserMasterId,
                 UserName = detail.UserName,
                 UserId = detail.UserId,
-                Password = detail.Password,
-                ConfirmPassword = detail.Password,
+                Password = string.Empty,
+                ConfirmPassword = string.Empty,
                 EmailAddress = detail.EmailAddress,
                 MobileNo = detail.MobileNo,
                 Remark = detail.Remark,

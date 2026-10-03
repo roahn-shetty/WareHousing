@@ -1,20 +1,17 @@
 ﻿@page "/"
 
+@rendermode InteractiveServer
+
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IMenuMasterRepository MenuMasterRepository
+
 <PageTitle>Warehouse Dashboard</PageTitle>
 
 <section class="dashboard-shell">
     <div class="hero-panel">
         <div>
-            <p class="section-kicker">Client Start Page</p>
-            <h1 class="page-title">Warehouse Command Dashboard</h1>
-            <p class="page-subtitle">
-                Monitor client access, device readiness, and menu coverage from one start page designed for warehouse master setup.
-            </p>
-        </div>
-        <div class="hero-highlight">
-            <span class="hero-highlight-label">Today's readiness</span>
-            <strong>96% operations health</strong>
-            <p>Users, roles, printers, and menu access are aligned for the next dispatch cycle.</p>
+            <p class="section-kicker">&nbsp;</p>
+            <h1 class="page-title">WMS Dashboard</h1>
         </div>
     </div>
 
@@ -90,22 +87,52 @@
         <section class="panel">
             <div class="panel-heading">
                 <div>
-                    <h2 class="panel-title">Master modules</h2>
-                    <p class="panel-subtitle">Direct access to all client-facing setup screens.</p>
+                    <h2 class="panel-title">Main Modules</h2>
+                    <p class="panel-subtitle">Click a module to view its available screens.</p>
                 </div>
             </div>
 
-            <div class="quick-links-grid">
-                @foreach (var module in MasterModules)
+            <div class="module-switcher">
+                @foreach (var moduleGroup in DashboardModuleGroups)
                 {
-                    <a class="quick-link-card" href="@module.Href">
-                        <span class="quick-link-badge">@module.Code</span>
-                        <div>
-                            <strong>@module.Title</strong>
-                            <p>@module.Description</p>
-                        </div>
-                        <span class="link-note">@module.Note</span>
-                    </a>
+                    <button type="button" class="module-switch-card @(selectedModuleKey == moduleGroup.Key ? "active" : string.Empty)" @onclick="() => SelectDashboardModule(moduleGroup.Key)">
+                        <span class="module-switch-icon">@moduleGroup.Icon</span>
+                        <span class="module-switch-copy">
+                            <strong>@moduleGroup.Title</strong>
+                            <small>@moduleGroup.Summary</small>
+                        </span>
+                    </button>
+                }
+            </div>
+
+            <div class="module-detail-panel">
+                <div class="module-detail-heading">
+                    <span class="module-detail-icon">@SelectedModule.Icon</span>
+                    <div>
+                        <h3>@SelectedModule.Title Details</h3>
+                        <p>@SelectedModule.Summary</p>
+                    </div>
+                </div>
+
+                @if (SelectedModule.Links.Length == 0)
+                {
+                    <p class="empty-state">No active Menu Master records are linked with existing pages for this module.</p>
+                }
+                else
+                {
+                    <div class="quick-links-grid module-detail-grid">
+                        @foreach (var module in SelectedModule.Links)
+                        {
+                            <a class="quick-link-card" href="@module.Href">
+                                <span class="quick-link-badge">@module.Code</span>
+                                <div>
+                                    <strong>@module.Title</strong>
+                                    <p>@module.Description</p>
+                                </div>
+                                <span class="link-note">@module.Note</span>
+                            </a>
+                        }
+                    </div>
                 }
             </div>
         </section>
@@ -137,14 +164,79 @@
 
 @code {
     private const int StorageUtilization = 78;
+    private string selectedModuleKey = "master";
+    private int activeMenuCount;
+    private int totalMenuCount;
+    private DashboardModuleGroup[] dashboardModuleGroups = BuildDashboardModuleGroups(
+        Array.Empty<MenuNavigationLink>(),
+        Array.Empty<MenuNavigationLink>(),
+        Array.Empty<MenuNavigationLink>(),
+        Array.Empty<MenuNavigationLink>());
+    private static readonly DashboardModuleGroup EmptyModuleGroup = new("none", "🔒", "No Menus", "No role menu permissions assigned.", Array.Empty<ModuleLink>());
 
-    private static readonly DashboardMetric[] DashboardMetrics =
+    private DashboardModuleGroup SelectedModule =>
+        DashboardModuleGroups.FirstOrDefault(module => module.Key == selectedModuleKey) ??
+        DashboardModuleGroups.FirstOrDefault() ??
+        EmptyModuleGroup;
+
+    private IReadOnlyList<DashboardModuleGroup> DashboardModuleGroups => dashboardModuleGroups;
+
+    private DashboardMetric[] DashboardMetrics =>
+        new DashboardMetric[]
+        {
+            new DashboardMetric("Active Users", "148", "12 users pending right review", "metric-card-teal"),
+            new DashboardMetric("Printers Online", "18", "2 devices awaiting IP confirmation", "metric-card-amber"),
+            new DashboardMetric("Roles Configured", "06", "1 custom role added this week", "metric-card-slate"),
+            new DashboardMetric("Menus Published", activeMenuCount.ToString("00"), $"{totalMenuCount:00} Menu Master records", "metric-card-cyan")
+        };
+
+    protected override async Task OnInitializedAsync()
     {
-        new("Active Users", "148", "12 users pending right review", "metric-card-teal"),
-        new("Printers Online", "18", "2 devices awaiting IP confirmation", "metric-card-amber"),
-        new("Roles Configured", "06", "1 custom role added this week", "metric-card-slate"),
-        new("Menus Published", "24", "All client routes mapped", "metric-card-cyan")
-    };
+        await LoadMenuMasterModulesAsync();
+    }
+
+    private async Task LoadMenuMasterModulesAsync()
+    {
+        try
+        {
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var userMasterIdClaim = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (!int.TryParse(userMasterIdClaim, out var userMasterId) || userMasterId <= 0)
+            {
+                dashboardModuleGroups = BuildDashboardModuleGroups(
+                    Array.Empty<MenuNavigationLink>(),
+                    Array.Empty<MenuNavigationLink>(),
+                    Array.Empty<MenuNavigationLink>(),
+                    Array.Empty<MenuNavigationLink>());
+                EnsureSelectedDashboardModule();
+                return;
+            }
+
+            var menus = await MenuMasterRepository.GetMenusForUserAsync(userMasterId);
+            var masterLinks = MenuNavigationCatalog.GetActiveMasterLinks(menus);
+            var storeLinks = MenuNavigationCatalog.GetActiveStoreLinks(menus);
+            var productionLinks = MenuNavigationCatalog.GetActiveProductionLinks(menus);
+            var dispatchLinks = MenuNavigationCatalog.GetActiveDispatchLinks(menus);
+
+            totalMenuCount = menus.Count;
+            activeMenuCount = menus.Count(menu =>
+                string.Equals(menu.Status, "Activate", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(menu.Status, "Active", StringComparison.OrdinalIgnoreCase));
+            dashboardModuleGroups = BuildDashboardModuleGroups(masterLinks, storeLinks, productionLinks, dispatchLinks);
+            EnsureSelectedDashboardModule();
+        }
+        catch
+        {
+            activeMenuCount = 0;
+            totalMenuCount = 0;
+            dashboardModuleGroups = BuildDashboardModuleGroups(
+                Array.Empty<MenuNavigationLink>(),
+                Array.Empty<MenuNavigationLink>(),
+                Array.Empty<MenuNavigationLink>(),
+                Array.Empty<MenuNavigationLink>());
+            EnsureSelectedDashboardModule();
+        }
+    }
 
     private static readonly ActivityChartPoint[] ActivityChart =
     {
@@ -163,13 +255,61 @@
         new("Admin readiness", "4 masters synchronized", "legend-cyan")
     };
 
-    private static readonly ModuleLink[] MasterModules =
+    private static DashboardModuleGroup[] BuildDashboardModuleGroups(
+        IReadOnlyList<MenuNavigationLink> masterLinks,
+        IReadOnlyList<MenuNavigationLink> storeLinks,
+        IReadOnlyList<MenuNavigationLink> productionLinks,
+        IReadOnlyList<MenuNavigationLink> dispatchLinks)
     {
-        new("UM", "User Master", "Create users, set passwords, and assign operational rights.", "user-master", "Security"),
-        new("RM", "Role Master", "Configure warehouse roles and decide menu availability.", "role-master", "Access"),
-        new("PM", "Printer Master", "Register printer IDs, ports, and activation status.", "printer-master", "Devices"),
-        new("MM", "Menu Master", "Review client navigation groups and route-level visibility.", "menu-master", "Navigation")
-    };
+        var groups = new List<DashboardModuleGroup>();
+
+        if (masterLinks.Count > 0)
+        {
+            groups.Add(new DashboardModuleGroup(
+                "master",
+                "🧩",
+                "Master",
+                "Permitted master screens from Role Master",
+                ToModuleLinks(masterLinks)));
+        }
+
+        if (storeLinks.Count > 0)
+        {
+            groups.Add(new DashboardModuleGroup(
+                "store",
+                "📦",
+                "Store",
+                "Permitted store screens from Role Master",
+                ToModuleLinks(storeLinks)));
+        }
+
+        if (productionLinks.Count > 0)
+        {
+            groups.Add(new DashboardModuleGroup(
+                "production",
+                "⚙️",
+                "Production",
+                "Permitted production screens from Role Master",
+                ToModuleLinks(productionLinks)));
+        }
+
+        if (dispatchLinks.Count > 0)
+        {
+            groups.Add(new DashboardModuleGroup(
+                "dispatch",
+                "🚚",
+                "Dispatch",
+                "Permitted dispatch screens from Role Master",
+                ToModuleLinks(dispatchLinks)));
+        }
+
+        return groups.ToArray();
+    }
+
+    private static ModuleLink[] ToModuleLinks(IReadOnlyList<MenuNavigationLink> links) =>
+        links
+            .Select(link => new ModuleLink(link.Icon, link.MenuName, link.Description, link.Href, link.Note))
+            .ToArray();
 
     private static readonly ActivityTask[] PriorityActions =
     {
@@ -182,6 +322,21 @@
     private sealed record DashboardMetric(string Label, string Value, string Meta, string AccentClass);
     private sealed record ActivityChartPoint(string Month, int Inbound, int Outbound, int InboundPercent, int OutboundPercent);
     private sealed record LegendMetric(string Label, string Value, string AccentClass);
+    private sealed record DashboardModuleGroup(string Key, string Icon, string Title, string Summary, ModuleLink[] Links);
     private sealed record ModuleLink(string Code, string Title, string Description, string Href, string Note);
     private sealed record ActivityTask(string Title, string Description, string When, string AccentClass);
+
+    private void SelectDashboardModule(string key)
+    {
+        selectedModuleKey = key;
+    }
+
+    private void EnsureSelectedDashboardModule()
+    {
+        if (dashboardModuleGroups.Length > 0 &&
+            !dashboardModuleGroups.Any(module => module.Key == selectedModuleKey))
+        {
+            selectedModuleKey = dashboardModuleGroups[0].Key;
+        }
+    }
 }

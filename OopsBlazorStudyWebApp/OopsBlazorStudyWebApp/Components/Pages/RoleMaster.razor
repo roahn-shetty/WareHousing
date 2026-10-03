@@ -9,84 +9,168 @@
             <p class="section-kicker">Access Matrix</p>
             <h1 class="page-title">Role Master</h1>
             <p class="page-subtitle">
-                Create warehouse roles, define the default landing page, and decide which menu areas each role can use.
+                Create and update warehouse roles through the API, then assign menu rights from Menu Master.
             </p>
         </div>
         <div class="header-note-card">
-            <span class="header-note-label">Role health</span>
-            <strong>@roles.Count configured templates</strong>
-            <p>Each role in this screen is connected to route-level menu permissions.</p>
+            <span class="header-note-label">API connected</span>
+            <strong>@roles.Count roles loaded</strong>
+            <p>@menus.Count menu entries available for role rights.</p>
         </div>
     </div>
 
-    <div class="master-content-grid">
+    <div class="master-tabs">
+        <button type="button" class="master-tab @(activeTab == RoleTab.Create ? "active" : string.Empty)" @onclick="() => SetActiveTabAsync(RoleTab.Create)">Create Role</button>
+        <button type="button" class="master-tab @(activeTab == RoleTab.Update ? "active" : string.Empty)" @onclick="() => SetActiveTabAsync(RoleTab.Update)">Update Role</button>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <div class="validation-summary">@errorMessage</div>
+    }
+
+    <div class="master-content-grid @(activeTab == RoleTab.Update ? "update-grid" : string.Empty)">
         <section class="panel panel-large">
             <div class="panel-heading">
                 <div>
-                    <h2 class="panel-title">Configure role</h2>
-                    <p class="panel-subtitle">Prepare access bundles before assigning them inside User Master.</p>
+                    <h2 class="panel-title">@(activeTab == RoleTab.Create ? "Create role" : "Update selected role")</h2>
+                    <p class="panel-subtitle">
+                        @(activeTab == RoleTab.Create
+                            ? "Role Code is created once and then locked during update."
+                            : "Role Code is locked. Role name, status, landing page, remark, and menu rights can be updated.")
+                    </p>
                 </div>
-                <span class="pill pill-cyan">Role setup</span>
+                <span class="pill @(activeTab == RoleTab.Create ? "pill-teal" : "pill-amber")">Role setup</span>
             </div>
 
-            <EditForm Model="@roleForm" OnValidSubmit="@HandleSaveRole" class="master-form">
-                <DataAnnotationsValidator />
-                <ValidationSummary class="validation-summary" />
+            @if (activeTab == RoleTab.Create)
+            {
+                <EditForm Model="@createModel" OnValidSubmit="@CreateRoleAsync" class="master-form">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary class="validation-summary" />
 
-                <div class="form-grid">
-                    <div class="field-block">
-                        <label class="field-label" for="role-name">Role Name</label>
-                        <InputText id="role-name" class="field-input" @bind-Value="roleForm.RoleName" />
-                    </div>
+                    <div class="form-grid">
+                        <div class="field-block">
+                            <label class="field-label" for="create-role-name">Role Name</label>
+                            <InputText id="create-role-name" class="field-input" @bind-Value="createModel.RoleName" />
+                        </div>
 
-                    <div class="field-block">
-                        <label class="field-label" for="role-code">Role Code</label>
-                        <InputText id="role-code" class="field-input" @bind-Value="roleForm.RoleCode" />
-                    </div>
+                        <div class="field-block">
+                            <label class="field-label" for="create-role-code">Role Code</label>
+                            <InputText id="create-role-code" class="field-input" @bind-Value="createModel.RoleCode" />
+                        </div>
 
-                    <div class="field-block">
-                        <label class="field-label" for="landing-page">Default Landing Page</label>
-                        <InputSelect id="landing-page" class="field-input" @bind-Value="roleForm.LandingPage">
-                            <option value="">Select page</option>
-                            @foreach (var landingPage in LandingPages)
-                            {
-                                <option value="@landingPage">@landingPage</option>
-                            }
-                        </InputSelect>
-                    </div>
+                        <div class="field-block">
+                            <label class="field-label" for="create-landing-page">Default Landing Page</label>
+                            <InputSelect id="create-landing-page" class="field-input" @bind-Value="createModel.LandingPage">
+                                <option value="">Select page</option>
+                                @foreach (var landingPage in LandingPages)
+                                {
+                                    <option value="@landingPage">@landingPage</option>
+                                }
+                            </InputSelect>
+                        </div>
 
-                    <div class="field-block">
-                        <label class="field-label" for="role-status">Status</label>
-                        <InputSelect id="role-status" class="field-input" @bind-Value="roleForm.Status">
-                            <option value="Active">Active</option>
-                            <option value="Inactive">Inactive</option>
-                        </InputSelect>
-                    </div>
+                        <div class="field-block">
+                            <label class="field-label" for="create-role-status">Status</label>
+                            <InputSelect id="create-role-status" class="field-input" @bind-Value="createModel.Status">
+                                <option value="Active">Active</option>
+                                <option value="Inactive">Inactive</option>
+                            </InputSelect>
+                        </div>
 
-                    <div class="field-block field-block-full">
-                        <label class="field-label">Menu Rights</label>
-                        <div class="selection-grid">
-                            @foreach (var right in MenuRights)
-                            {
-                                <label class="selection-chip">
-                                    <input type="checkbox" checked="@roleForm.AssignedMenus.Contains(right)" @onchange="@(args => ToggleMenuRight(right, args))" />
-                                    <span>@right</span>
-                                </label>
-                            }
+                        <div class="field-block field-block-full">
+                            <label class="field-label" for="create-menu-rights">Menu Rights</label>
+                            <div class="menu-rights-picker">
+                                <select id="create-menu-rights" class="field-input" value="@selectedCreateMenuId" @onchange="@(args => AddMenuFromDropdown(createModel, args))" disabled="@(!menus.Any())">
+                                    <option value="0">Select menu from Menu Master</option>
+                                    @foreach (var menu in AvailableMenus(createModel))
+                                    {
+                                        <option value="@menu.Id">@GetMenuLabel(menu)</option>
+                                    }
+                                </select>
+                                <button type="button" class="btn-secondary-action" @onclick="() => ClearMenus(createModel)" disabled="@(createModel.SelectedMenuIds.Count == 0)">Clear Rights</button>
+                            </div>
+
+                            @RenderSelectedMenuRights(createModel)
+                        </div>
+
+                        <div class="field-block field-block-full">
+                            <label class="field-label" for="create-role-remark">Remark</label>
+                            <InputTextArea id="create-role-remark" class="field-input field-textarea" @bind-Value="createModel.Remark" />
                         </div>
                     </div>
 
-                    <div class="field-block field-block-full">
-                        <label class="field-label" for="role-remark">Remark</label>
-                        <InputTextArea id="role-remark" class="field-input field-textarea" @bind-Value="roleForm.Remark" />
+                    <div class="form-actions">
+                        <button type="submit" class="btn-primary-action" disabled="@isBusy">Save Role</button>
+                        <button type="button" class="btn-secondary-action" @onclick="ResetCreateForm" disabled="@isBusy">Clear</button>
                     </div>
-                </div>
+                </EditForm>
+            }
+            else
+            {
+                <EditForm Model="@updateModel" OnSubmit="@HandleUpdateRoleSubmitAsync" class="master-form" @key="updateModel.RoleId">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary class="validation-summary" />
 
-                <div class="form-actions">
-                    <button type="submit" class="btn-primary-action">Save Role</button>
-                    <button type="button" class="btn-secondary-action" @onclick="ResetRoleForm">Clear</button>
-                </div>
-            </EditForm>
+                    <div class="form-grid">
+                        <div class="field-block">
+                            <label class="field-label" for="update-role-name">Role Name</label>
+                            <InputText id="update-role-name" class="field-input" @bind-Value="updateModel.RoleName" />
+                        </div>
+
+                        <div class="field-block">
+                            <label class="field-label" for="update-role-code">Role Code</label>
+                            <InputText id="update-role-code" class="field-input field-input-readonly" @bind-Value="updateModel.RoleCode" readonly />
+                        </div>
+
+                        <div class="field-block">
+                            <label class="field-label" for="update-landing-page">Default Landing Page</label>
+                            <InputSelect id="update-landing-page" class="field-input" @bind-Value="updateModel.LandingPage">
+                                <option value="">Select page</option>
+                                @foreach (var landingPage in LandingPages)
+                                {
+                                    <option value="@landingPage">@landingPage</option>
+                                }
+                            </InputSelect>
+                        </div>
+
+                        <div class="field-block">
+                            <label class="field-label" for="update-role-status">Status</label>
+                            <InputSelect id="update-role-status" class="field-input" @bind-Value="updateModel.Status">
+                                <option value="Active">Active</option>
+                                <option value="Inactive">Inactive</option>
+                            </InputSelect>
+                        </div>
+
+                        <div class="field-block field-block-full">
+                            <label class="field-label" for="update-menu-rights">Menu Rights</label>
+                            <div class="menu-rights-picker">
+                                <select id="update-menu-rights" class="field-input" value="@selectedUpdateMenuId" @onchange="@(args => AddMenuFromDropdown(updateModel, args))" disabled="@(!menus.Any())">
+                                    <option value="0">Select menu from Menu Master</option>
+                                    @foreach (var menu in AvailableMenus(updateModel))
+                                    {
+                                        <option value="@menu.Id">@GetMenuLabel(menu)</option>
+                                    }
+                                </select>
+                                <button type="button" class="btn-secondary-action" @onclick="() => ClearMenus(updateModel)" disabled="@(updateModel.SelectedMenuIds.Count == 0)">Clear Rights</button>
+                            </div>
+
+                            @RenderSelectedMenuRights(updateModel)
+                        </div>
+
+                        <div class="field-block field-block-full">
+                            <label class="field-label" for="update-role-remark">Remark</label>
+                            <InputTextArea id="update-role-remark" class="field-input field-textarea" @bind-Value="updateModel.Remark" />
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn-primary-action" aria-disabled="@IsUpdateBlocked">Update Role</button>
+                        <span class="update-diagnostic">Selected Role ID: @updateModel.RoleId | Busy: @isBusy</span>
+                    </div>
+                </EditForm>
+            }
 
             @if (!string.IsNullOrWhiteSpace(statusMessage))
             {
@@ -95,32 +179,53 @@
         </section>
 
         <aside class="panel side-panel">
-            <div class="panel-heading">
-                <div>
-                    <h2 class="panel-title">Configured roles</h2>
-                    <p class="panel-subtitle">Quick snapshot of warehouse access templates.</p>
-                </div>
-            </div>
-
-            <div class="summary-stack">
-                @foreach (var role in roles)
-                {
-                    <div class="summary-card">
-                        <div class="summary-title-row">
-                            <strong>@role.RoleName</strong>
-                            <span class="mini-badge @(role.Status == "Active" ? "mini-badge-teal" : "mini-badge-slate")">@role.Status</span>
-                        </div>
-                        <span class="summary-label">@role.RoleCode</span>
-                        <p class="summary-text">Landing page: @role.LandingPage</p>
-                        <div class="chip-list">
-                            @foreach (var menu in role.AssignedMenus)
-                            {
-                                <span class="chip">@menu</span>
-                            }
-                        </div>
+            @if (activeTab == RoleTab.Update)
+            {
+                <div class="panel-heading">
+                    <div>
+                        <h2 class="panel-title">Existing roles</h2>
+                        <p class="panel-subtitle">Select a role to load it in the update form.</p>
                     </div>
-                }
-            </div>
+                </div>
+
+                <div class="record-list">
+                    @if (roles.Count == 0)
+                    {
+                        <p class="empty-state">No roles found.</p>
+                    }
+                    else
+                    {
+                        @foreach (var role in roles)
+                        {
+                            <button type="button" class="record-tile @(selectedRoleId == role.RoleId ? "selected" : string.Empty)" @onclick="() => SelectRoleAsync(role.RoleId)" disabled="@isBusy">
+                                <strong>@role.RoleName</strong>
+                                <span>@role.RoleCode - @role.Status</span>
+                                <small>@role.MenuRightCount menu rights</small>
+                            </button>
+                        }
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="panel-heading">
+                    <div>
+                        <h2 class="panel-title">Configured roles</h2>
+                        <p class="panel-subtitle">Quick snapshot of warehouse access templates.</p>
+                    </div>
+                </div>
+
+                <div class="summary-stack">
+                    <div class="summary-card">
+                        <span class="summary-label">Active roles</span>
+                        <strong class="summary-number">@roles.Count(role => role.Status == "Active")</strong>
+                    </div>
+                    <div class="summary-card">
+                        <span class="summary-label">Inactive roles</span>
+                        <strong class="summary-number">@roles.Count(role => role.Status == "Inactive")</strong>
+                    </div>
+                </div>
+            }
         </aside>
     </div>
 
@@ -128,7 +233,7 @@
         <div class="panel-heading">
             <div>
                 <h2 class="panel-title">Role matrix</h2>
-                <p class="panel-subtitle">Compare role codes, landing pages, and menu-right counts.</p>
+                <p class="panel-subtitle">Latest role records from SQL Server.</p>
             </div>
         </div>
 
@@ -144,15 +249,24 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var role in roles)
+                    @if (roles.Count == 0)
                     {
                         <tr>
-                            <td>@role.RoleName</td>
-                            <td>@role.RoleCode</td>
-                            <td>@role.LandingPage</td>
-                            <td>@role.Status</td>
-                            <td>@role.AssignedMenus.Count</td>
+                            <td colspan="5">No roles found.</td>
                         </tr>
+                    }
+                    else
+                    {
+                        @foreach (var role in roles)
+                        {
+                            <tr>
+                                <td>@role.RoleName</td>
+                                <td>@role.RoleCode</td>
+                                <td>@role.LandingPage</td>
+                                <td><span class="chip">@role.Status</span></td>
+                                <td>@(string.IsNullOrWhiteSpace(role.MenuRights) ? "No menu rights" : role.MenuRights)</td>
+                            </tr>
+                        }
                     }
                 </tbody>
             </table>
@@ -161,157 +275,407 @@
 </section>
 
 @code {
+    private readonly HttpClient apiClient = new();
+
     private static readonly string[] LandingPages =
     {
         "Dashboard",
         "User Master",
         "Role Master",
         "Printer Master",
-        "Menu Master"
-    };
-
-    private static readonly string[] MenuRights =
-    {
-        "Dashboard",
-        "User Master",
-        "Role Master",
-        "Printer Master",
         "Menu Master",
-        "Reports"
+        "Store Reports",
+        "Production Reports",
+        "Dispatch Reports"
     };
 
-    private readonly List<RoleEntry> roles = new List<RoleEntry>
-    {
-        new RoleEntry
-        {
-            RoleName = "Administrator",
-            RoleCode = "ADM",
-            LandingPage = "Dashboard",
-            Status = "Active",
-            AssignedMenus = new List<string> { "Dashboard", "User Master", "Role Master", "Printer Master", "Menu Master", "Reports" },
-            Remark = "Complete client access"
-        },
-        new RoleEntry
-        {
-            RoleName = "Dispatch Supervisor",
-            RoleCode = "DSP",
-            LandingPage = "Dashboard",
-            Status = "Active",
-            AssignedMenus = new List<string> { "Dashboard", "Printer Master", "Reports" },
-            Remark = "Dispatch and print controls"
-        },
-        new RoleEntry
-        {
-            RoleName = "Inventory Controller",
-            RoleCode = "INV",
-            LandingPage = "User Master",
-            Status = "Active",
-            AssignedMenus = new List<string> { "Dashboard", "User Master", "Reports" },
-            Remark = "Inbound stock operations"
-        }
-    };
-
-    private RoleFormModel roleForm = new RoleFormModel
-    {
-        Status = "Active"
-    };
-
+    private List<RoleMasterListDto> roles = new();
+    private List<MenuMasterListDto> menus = new();
+    private RoleMasterFormModel createModel = new();
+    private RoleMasterFormModel updateModel = new();
+    private RoleTab activeTab = RoleTab.Create;
+    private int selectedRoleId;
+    private int selectedCreateMenuId;
+    private int selectedUpdateMenuId;
+    private bool isBusy;
     private string statusMessage = string.Empty;
+    private string errorMessage = string.Empty;
+    private bool IsUpdateBlocked => isBusy || updateModel.RoleId <= 0;
 
-    private void HandleSaveRole()
+    [Inject]
+    private NavigationManager NavigationManager { get; set; } = default!;
+
+    protected override void OnInitialized()
     {
-        var existingRole = roles.FirstOrDefault(role => role.RoleCode.Equals(roleForm.RoleCode, StringComparison.OrdinalIgnoreCase));
-        if (existingRole is null)
+        apiClient.BaseAddress = new Uri(NavigationManager.BaseUri);
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        ResetCreateForm();
+        await LoadDataAsync();
+
+        if (roles.Count > 0)
         {
-            roles.Insert(0, ToRoleEntry(roleForm));
-            statusMessage = $"{roleForm.RoleName} has been added to the warehouse role matrix.";
-        }
-        else
-        {
-            existingRole.RoleName = roleForm.RoleName;
-            existingRole.LandingPage = roleForm.LandingPage;
-            existingRole.Status = roleForm.Status;
-            existingRole.Remark = roleForm.Remark;
-            existingRole.AssignedMenus = new List<string>(roleForm.AssignedMenus);
-            statusMessage = $"{roleForm.RoleName} has been updated.";
+            await SelectRoleAsync(roles[0].RoleId, switchTab: false, clearMessages: false);
         }
     }
 
-    private void ResetRoleForm()
+    private async Task LoadDataAsync()
     {
-        roleForm = new RoleFormModel
+        try
+        {
+            errorMessage = string.Empty;
+            menus = await apiClient.GetFromJsonAsync<List<MenuMasterListDto>>("api/menumaster") ?? new List<MenuMasterListDto>();
+            roles = await apiClient.GetFromJsonAsync<List<RoleMasterListDto>>("api/rolemaster") ?? new List<RoleMasterListDto>();
+            SyncSelectedMenusWithMenuMaster(createModel);
+            SyncSelectedMenusWithMenuMaster(updateModel);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Unable to load Role Master data. {ex.Message}";
+        }
+    }
+
+    private async Task CreateRoleAsync()
+    {
+        if (isBusy)
+        {
+            return;
+        }
+
+        await SaveAsync("api/rolemaster", createModel.ToRequest(), async response =>
+        {
+            var createdRoleId = await ReadCreatedRoleIdAsync(response);
+            statusMessage = "Role created successfully.";
+            ResetCreateForm();
+            await LoadDataAsync();
+
+            if (createdRoleId > 0)
+            {
+                await SelectRoleAsync(createdRoleId, switchTab: false, clearMessages: false);
+            }
+        });
+    }
+
+    private async Task HandleUpdateRoleSubmitAsync()
+    {
+        await UpdateRoleAsync();
+    }
+
+    private async Task UpdateRoleAsync()
+    {
+        if (isBusy)
+        {
+            errorMessage = "Update request is blocked because another operation is still running.";
+            return;
+        }
+
+        if (updateModel.RoleId <= 0)
+        {
+            errorMessage = "Select a role first.";
+            statusMessage = string.Empty;
+            return;
+        }
+
+        var validationResults = new List<ValidationResult>();
+        var validationContext = new ValidationContext(updateModel);
+        if (!Validator.TryValidateObject(updateModel, validationContext, validationResults, true))
+        {
+            errorMessage = string.Join(" ", validationResults.Select(result => result.ErrorMessage).Where(message => !string.IsNullOrWhiteSpace(message)));
+            statusMessage = string.Empty;
+            return;
+        }
+
+        await SaveAsync($"api/rolemaster/{updateModel.RoleId}", updateModel.ToRequest(), async _ =>
+        {
+            var updatedRoleId = updateModel.RoleId;
+            statusMessage = $"Role updated successfully at {DateTime.Now:HH:mm:ss}.";
+            await LoadDataAsync();
+            await SelectRoleAsync(updatedRoleId, switchTab: false, clearMessages: false);
+        }, isPut: true);
+    }
+
+    private async Task SaveAsync(string url, RoleMasterSaveRequest request, Func<HttpResponseMessage, Task> onSuccess, bool isPut = false)
+    {
+        isBusy = true;
+        statusMessage = string.Empty;
+        errorMessage = string.Empty;
+
+        try
+        {
+            var response = isPut
+                ? await apiClient.PutAsJsonAsync(url, request)
+                : await apiClient.PostAsJsonAsync(url, request);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                errorMessage = await ReadErrorAsync(response);
+                return;
+            }
+
+            await onSuccess(response);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private async Task SelectRoleAsync(int roleId, bool switchTab = true, bool clearMessages = true)
+    {
+        isBusy = true;
+
+        if (clearMessages)
+        {
+            errorMessage = string.Empty;
+            statusMessage = string.Empty;
+        }
+
+        try
+        {
+            var role = await apiClient.GetFromJsonAsync<RoleMasterDetailDto>($"api/rolemaster/{roleId}");
+            if (role is null)
+            {
+                errorMessage = "Role record was not found.";
+                return;
+            }
+
+            selectedRoleId = role.RoleId;
+            updateModel = RoleMasterFormModel.FromDetail(role);
+            SyncSelectedMenusWithMenuMaster(updateModel);
+            selectedUpdateMenuId = 0;
+
+            if (switchTab)
+            {
+                activeTab = RoleTab.Update;
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private async Task SetActiveTabAsync(RoleTab tab)
+    {
+        activeTab = tab;
+        statusMessage = string.Empty;
+        errorMessage = string.Empty;
+
+        if (tab == RoleTab.Update && updateModel.RoleId <= 0 && roles.Count > 0)
+        {
+            await SelectRoleAsync(roles[0].RoleId, switchTab: false, clearMessages: false);
+        }
+    }
+
+    private IEnumerable<MenuMasterListDto> AvailableMenus(RoleMasterFormModel model) =>
+        menus.Where(menu => !model.SelectedMenuIds.Contains(menu.Id));
+
+    private void AddMenuFromDropdown(RoleMasterFormModel model, ChangeEventArgs args)
+    {
+        var selectedValue = args.Value?.ToString();
+        if (!int.TryParse(selectedValue, out var menuId) || menuId <= 0)
+        {
+            ResetSelectedMenuDropdown(model);
+            return;
+        }
+
+        if (!model.SelectedMenuIds.Contains(menuId) && menus.Any(menu => menu.Id == menuId))
+        {
+            model.SelectedMenuIds.Add(menuId);
+        }
+
+        ResetSelectedMenuDropdown(model);
+    }
+
+    private void RemoveMenu(RoleMasterFormModel model, int menuId)
+    {
+        model.SelectedMenuIds.Remove(menuId);
+        ResetSelectedMenuDropdown(model);
+    }
+
+    private void ClearMenus(RoleMasterFormModel model)
+    {
+        model.SelectedMenuIds.Clear();
+        ResetSelectedMenuDropdown(model);
+    }
+
+    private void ResetSelectedMenuDropdown(RoleMasterFormModel model)
+    {
+        if (ReferenceEquals(model, updateModel))
+        {
+            selectedUpdateMenuId = 0;
+        }
+        else
+        {
+            selectedCreateMenuId = 0;
+        }
+    }
+
+    private void SyncSelectedMenusWithMenuMaster(RoleMasterFormModel model)
+    {
+        if (menus.Count == 0)
+        {
+            return;
+        }
+
+        model.SelectedMenuIds = model.SelectedMenuIds
+            .Where(menuId => menus.Any(menu => menu.Id == menuId))
+            .Distinct()
+            .ToList();
+    }
+
+    private RenderFragment RenderSelectedMenuRights(RoleMasterFormModel model) => builder =>
+    {
+        if (!menus.Any())
+        {
+            builder.OpenElement(0, "p");
+            builder.AddAttribute(1, "class", "empty-state");
+            builder.AddContent(2, "No menu records found in Menu Master.");
+            builder.CloseElement();
+            return;
+        }
+
+        if (model.SelectedMenuIds.Count == 0)
+        {
+            builder.OpenElement(3, "p");
+            builder.AddAttribute(4, "class", "empty-state");
+            builder.AddContent(5, "Select one or more menu rights from the dropdown.");
+            builder.CloseElement();
+            return;
+        }
+
+        builder.OpenElement(6, "div");
+        builder.AddAttribute(7, "class", "chip-list selected-rights-list");
+        var sequence = 8;
+        foreach (var menuId in model.SelectedMenuIds)
+        {
+            builder.OpenElement(sequence++, "button");
+            builder.AddAttribute(sequence++, "type", "button");
+            builder.AddAttribute(sequence++, "class", "chip chip-action");
+            builder.AddAttribute(sequence++, "onclick", EventCallback.Factory.Create(this, () => RemoveMenu(model, menuId)));
+            builder.AddContent(sequence++, GetMenuLabel(menuId));
+            builder.AddContent(sequence++, " ");
+            builder.OpenElement(sequence++, "span");
+            builder.AddAttribute(sequence++, "aria-hidden", "true");
+            builder.AddContent(sequence++, "x");
+            builder.CloseElement();
+            builder.CloseElement();
+        }
+        builder.CloseElement();
+    };
+
+    private string GetMenuLabel(int menuId)
+    {
+        var menu = menus.FirstOrDefault(item => item.Id == menuId);
+        return menu is null ? $"Menu #{menuId}" : GetMenuLabel(menu);
+    }
+
+    private static string GetMenuLabel(MenuMasterListDto menu) => $"{menu.MenuName} ({menu.Status})";
+
+    private void ResetCreateForm()
+    {
+        createModel = new RoleMasterFormModel
         {
             Status = "Active"
         };
-        statusMessage = string.Empty;
+        selectedCreateMenuId = 0;
     }
 
-    private void ToggleMenuRight(string right, ChangeEventArgs args)
+    private async Task<int> ReadCreatedRoleIdAsync(HttpResponseMessage response)
     {
-        var isChecked = args.Value switch
+        try
         {
-            bool boolValue => boolValue,
-            string stringValue when bool.TryParse(stringValue, out var parsedValue) => parsedValue,
-            _ => false
-        };
-
-        if (isChecked)
-        {
-            if (!roleForm.AssignedMenus.Contains(right))
-            {
-                roleForm.AssignedMenus.Add(right);
-            }
+            var payload = await response.Content.ReadFromJsonAsync<CreatedRoleResponse>();
+            return payload?.RoleId ?? 0;
         }
-        else
+        catch
         {
-            roleForm.AssignedMenus.Remove(right);
+            return 0;
         }
     }
 
-    private static RoleEntry ToRoleEntry(RoleFormModel model) =>
-        new RoleEntry
-        {
-            RoleName = model.RoleName,
-            RoleCode = model.RoleCode,
-            LandingPage = model.LandingPage,
-            Status = model.Status,
-            Remark = model.Remark,
-            AssignedMenus = new List<string>(model.AssignedMenus)
-        };
-
-    private sealed class RoleFormModel : IValidatableObject
+    private async Task<string> ReadErrorAsync(HttpResponseMessage response)
     {
-        [Required(ErrorMessage = "Role Name is required.")]
+        var payload = await response.Content.ReadAsStringAsync();
+        return string.IsNullOrWhiteSpace(payload) ? $"Request failed with {(int)response.StatusCode}." : payload;
+    }
+
+    private enum RoleTab
+    {
+        Create,
+        Update
+    }
+
+    private sealed class RoleMasterFormModel : IValidatableObject
+    {
+        public int RoleId { get; set; }
+
+        [Required]
         public string RoleName { get; set; } = string.Empty;
 
-        [Required(ErrorMessage = "Role Code is required.")]
+        [Required]
         public string RoleCode { get; set; } = string.Empty;
 
-        [Required(ErrorMessage = "Default Landing Page is required.")]
+        [Required]
         public string LandingPage { get; set; } = string.Empty;
 
+        [Required]
         public string Status { get; set; } = "Active";
 
-        public List<string> AssignedMenus { get; set; } = new();
-
         public string Remark { get; set; } = string.Empty;
+
+        public List<int> SelectedMenuIds { get; set; } = new();
 
         public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
         {
-            if (AssignedMenus.Count == 0)
+            if (!string.Equals(Status, "Active", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(Status, "Inactive", StringComparison.OrdinalIgnoreCase))
             {
-                yield return new ValidationResult("Select at least one menu right for the role.", new[] { nameof(AssignedMenus) });
+                yield return new ValidationResult("Status must be Active or Inactive.", new[] { nameof(Status) });
+            }
+
+            if (SelectedMenuIds.Count == 0)
+            {
+                yield return new ValidationResult("Select at least one menu right.", new[] { nameof(SelectedMenuIds) });
             }
         }
+
+        public RoleMasterSaveRequest ToRequest() =>
+            new()
+            {
+                RoleName = RoleName,
+                RoleCode = RoleCode,
+                LandingPage = LandingPage,
+                Status = Status,
+                Remark = Remark,
+                SelectedMenuIds = SelectedMenuIds.ToList()
+            };
+
+        public static RoleMasterFormModel FromDetail(RoleMasterDetailDto detail) =>
+            new()
+            {
+                RoleId = detail.RoleId,
+                RoleName = detail.RoleName,
+                RoleCode = detail.RoleCode,
+                LandingPage = detail.LandingPage,
+                Status = detail.Status,
+                Remark = detail.Remark,
+                SelectedMenuIds = detail.SelectedMenuIds.ToList()
+            };
     }
 
-    private sealed class RoleEntry
+    private sealed class CreatedRoleResponse
     {
-        public string RoleName { get; set; } = string.Empty;
-        public string RoleCode { get; set; } = string.Empty;
-        public string LandingPage { get; set; } = string.Empty;
-        public string Status { get; set; } = "Active";
-        public string Remark { get; set; } = string.Empty;
-        public List<string> AssignedMenus { get; set; } = new();
+        public int RoleId { get; set; }
     }
 }
